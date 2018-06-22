@@ -1,7 +1,6 @@
 from numpy import add, arange, average, abs, empty, fromstring, fft, int16, log10, multiply, ndarray, reshape, split
 from pyaudio import PyAudio, paInt16
 from threading import Thread
-from time import sleep
 
 
 class AudioCapture:
