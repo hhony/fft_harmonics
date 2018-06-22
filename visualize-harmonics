@@ -6,6 +6,7 @@
 
 import argparse
 from tools import AudioCapture, QtCore, PlotSignalWindow
+from tools import logger, set_level
 from sys import exit as sys_exit
 
 
@@ -28,7 +29,15 @@ if __name__ == '__main__':
         dest='update_ms', default=50,
         help='sets the refresh rate of graph in milliseconds. default: 50'
     )
+    parser.add_argument(
+        '--log-level',
+        dest='log_level', default='INFO',
+        help='sets the default logging level'
+    )
     args = parser.parse_args()
+
+    if args.log_level != 'INFO':
+        set_level(args.log_level)
 
     _plot = PlotSignalWindow()
     _audio = AudioCapture()
