@@ -15,9 +15,7 @@ class AudioCapture:
         if not self._capture_buffers:
             self._capture_buffers = 1
         self._capture_samples = int(self._buffer_size * self._capture_buffers) # == sec_to_capture * bitrate
-        self._chunks = int(self._capture_samples / self._buffer_size)
         self._sec_per_period = 1.0 / self._bitrate
-
         self._audio_signal = PyAudio()
         self._input_stream = self._audio_signal.open(
             format=paInt16,
@@ -27,8 +25,8 @@ class AudioCapture:
             frames_per_buffer=self._buffer_size
         )
         self._x_buffer = arange(self._buffer_size) * self._sec_per_period
-        self._x_values = arange(self._chunks * self._buffer_size) * self._sec_per_period
-        self._x_audio = empty((self._chunks * self._buffer_size), dtype=int16)
+        self._x_values = arange(self._capture_buffers * self._buffer_size) * self._sec_per_period
+        self._x_audio = empty((self._capture_buffers * self._buffer_size), dtype=int16)
         self._capture_thread = Thread(target=self.record)
 
     def close(self):
@@ -45,7 +43,7 @@ class AudioCapture:
     def record(self, forever=True):
         while not self._exiting:
             self._running = True
-            for i in range(self._chunks):
+            for i in range(self._capture_buffers):
                 _lower = int(i * self._buffer_size)
                 _upper = int((i + 1) * self._buffer_size)
                 self._x_audio[_lower:_upper] = self.get_audio()
