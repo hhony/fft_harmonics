@@ -1,6 +1,7 @@
 from numpy import add, arange, average, abs, empty, fromstring, fft, int16, log10, multiply, ndarray, reshape, split
 from pyaudio import PyAudio, paInt16
 from threading import Thread
+from .log import logger
 
 
 class AudioCapture:
@@ -11,6 +12,7 @@ class AudioCapture:
         self._exiting = False
         self._running = False
         self.has_captured = False
+        logger.info('AudioCapture settings:')
         self._capture_buffers = int(self._sec_to_capture * self._bitrate / self._buffer_size)
         if not self._capture_buffers:
             self._capture_buffers = 1
@@ -28,6 +30,9 @@ class AudioCapture:
         self._x_values = arange(self._capture_buffers * self._buffer_size) * self._sec_per_period
         self._x_audio = empty((self._capture_buffers * self._buffer_size), dtype=int16)
         self._capture_thread = Thread(target=self.record)
+        logger.info('  bitrate: %d, buffer_size: %d', self._bitrate, self._buffer_size)
+        logger.info('  capture_buffers: %d, capture_samples: %d, sec_per_period: %g',
+                    self._capture_buffers, self._capture_samples, self._sec_per_period)
 
     def close(self):
         if self._running:
