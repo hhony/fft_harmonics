@@ -50,8 +50,8 @@ if __name__ == '__main__':
         x, y = _audio.fft()
         triad = TriadFilter(x, y)
         chord = triad.filter()
-        if chord['root'] and chord['third']:
-            _plot.draw('frequencies', x, y)
+        _plot.draw('frequencies', x, y)
+        if chord['root']:
             logger.info('chord: %s%s', chord['root'], chord['third'])
         _audio.has_captured = False
     # setup timer poll
