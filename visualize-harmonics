@@ -5,7 +5,7 @@
 #
 
 import argparse
-from tools import AudioCapture, QtCore, PlotSignalWindow
+from tools import AudioCapture, QtCore, PlotSignalWindow, TriadFilter
 from tools import logger, set_level
 from sys import exit as sys_exit
 
@@ -48,7 +48,11 @@ if __name__ == '__main__':
         if not _audio.has_captured:
             return
         x, y = _audio.fft()
-        _plot.draw('random', x, y)
+        triad = TriadFilter(x, y)
+        chord = triad.filter()
+        if chord['root'] and chord['third']:
+            _plot.draw('frequencies', x, y)
+            logger.info('chord: %s%s', chord['root'], chord['third'])
         _audio.has_captured = False
     # setup timer poll
     timer = QtCore.QTimer()

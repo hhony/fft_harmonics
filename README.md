@@ -2,7 +2,7 @@
 
 ```bash
 brew install python3 pyqt
-pip3 install pyqtgraph numpy
+pip3 install pyqtgraph numpy scipy
 
 brew install portaudio
 pip3 install pyaudio
@@ -17,7 +17,8 @@ sudo apt-get install -y \
   python3-numpy \
   python3-pyqt4 \
   python3-pyqtgraph \
-  python3-pyaudio
+  python3-pyaudio \
+  python3-scipy
 
 ```
 
