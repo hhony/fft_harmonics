@@ -8,6 +8,7 @@ class NoteLabel:
         self.frequency = frequency
         self.magnitude = magnitude
         self.octave = 0
+        self.index = 0
         self.label = ''
         self.fifth = ''
         self.third = dict()
@@ -22,63 +23,77 @@ class TriadFilter:
             self._x = x[i]
         self._yy = []
         self._xx = []
-        self._freqs = [440.0, 466.16, 493.88, 523.25, 554.37, 587.33, 622.25, 659.26, 698.46, 739.99, 783.99, 830.61]
-        self._notes = {
-            '440.0' : 'A',
-            '466.16': 'A♯|B♭ ',
-            '493.88': 'B',
-            '523.25': 'C',
-            '554.37': 'C♯|D♭ ',
-            '587.33': 'D',
-            '622.25': 'D♯|E♭ ',
-            '659.26': 'E',
-            '698.46': 'F',
-            '739.99': 'F♯|G♭ ',
-            '783.99': 'G',
-            '830.61': 'G♯|A♭ '
-        }
-        self._fifths = {
-            'E'      : 'A',
-            'F'      : 'A♯|B♭ ',
-            'F♯|G♭ ' : 'B',
-            'G'      : 'C',
-            'G♯|A♭ ' : 'C♯|D♭ ',
-            'A'      : 'D',
-            'A♯|B♭ ' : 'D♯|E♭ ',
-            'B'      : 'E',
-            'C'      : 'F',
-            'C♯|D♭ ' : 'F♯|G♭ ',
-            'D'      : 'G',
-            'D♯|E♭ ' : 'G♯|A♭ '
-        }
-        self._minors = {
-            'C'      : 'A',
-            'C♯|D♭ ' : 'A♯|B♭ ',
-            'D'      : 'B',
-            'D♯|E♭ ' : 'C',
-            'E'      : 'C♯|D♭ ',
-            'F'      : 'D',
-            'F♯|G♭ ' : 'D♯|E♭ ',
-            'G'      : 'E',
-            'G♯|A♭ ' : 'F',
-            'A'      : 'F♯|G♭ ',
-            'A♯|B♭ ' : 'G',
-            'B'      : 'G♯|A♭ '
-        }
-        self._majors = {
-            'C♯|D♭ ' : 'A',
-            'D'      : 'A♯|B♭ ',
-            'D♯|E♭ ' : 'B',
-            'E'      : 'C',
-            'F'      : 'C♯|D♭ ',
-            'F♯|G♭ ' : 'D',
-            'G'      : 'D♯|E♭ ',
-            'G♯|A♭ ' : 'E',
-            'A'      : 'F',
-            'A♯|B♭ ' : 'F♯|G♭ ',
-            'B'      : 'G',
-            'C'      : 'G♯|A♭ '
-        }
+        self._freqs = [
+            440.0,
+            466.16,
+            493.88,
+            523.25,
+            554.37,
+            587.33,
+            622.25,
+            659.26,
+            698.46,
+            739.99,
+            783.99,
+            830.61
+        ]
+        self._roots = [
+            'A',
+            'A♯|B♭',
+            'B',
+            'C',
+            'C♯|D♭',
+            'D',
+            'D♯|E♭',
+            'E',
+            'F',
+            'F♯|G♭',
+            'G',
+            'G♯|A♭'
+        ]
+
+        self._fifths = [
+            'E',
+            'F',
+            'F♯|G♭',
+            'G',
+            'G♯|A♭',
+            'A',
+            'A♯|B♭',
+            'B',
+            'C',
+            'C♯|D♭',
+            'D',
+            'D♯|E♭'
+        ]
+        self._minors = [
+            'C',
+            'C♯|D♭',
+            'D',
+            'D♯|E♭',
+            'E',
+            'F',
+            'F♯|G♭',
+            'G',
+            'G♯|A♭',
+            'A',
+            'A♯|B♭',
+            'B'
+        ]
+        self._majors = [
+            'C♯|D♭',
+            'D',
+            'D♯|E♭',
+            'E',
+            'F',
+            'F♯|G♭',
+            'G',
+            'G♯|A♭',
+            'A',
+            'A♯|B♭',
+            'B',
+            'C'
+        ]
         self._note_set = list()
         self._note_labels = list()
         self._maxmag_freq = None
@@ -103,10 +118,11 @@ class TriadFilter:
                 _octave += 1
             _octave *= -1
         _value = [abs(float(1 - (value/i))) for i in self._freqs]
-        _index = str(self._freqs[_value.index(min(_value))])
-        note.label = self._notes[_index]
-        note.fifth = self._fifths[note.label]
-        note.third = { 'minor': self._minors[note.label], 'major': self._majors[note.label] }
+        _index = _value.index(min(_value))
+        note.index = _index
+        note.label = self._roots[note.index]
+        note.fifth = self._fifths[note.index]
+        note.third = { 'minor': self._minors[note.index], 'major': self._majors[note.index] }
         return note
 
     def find_maxima(self):
@@ -125,7 +141,8 @@ class TriadFilter:
         # else:
         #     logger.debug('...')
 
-    def build_histogram(self, histogram: dict, key: str):
+    def build_histogram(self, histogram: dict, index: int):
+        key = self._roots[index]
         if key not in histogram:
             histogram[key] = 1
             return
@@ -146,9 +163,9 @@ class TriadFilter:
         for nl in self._note_labels:
             _fifth = nl.fifth
             if _fifth in self._note_set:
-                self.build_histogram(_histogram, _fifth)
+                self.build_histogram(_histogram, nl.index)
         _root = self.parse_historgram(_histogram)
-        if _root and _root != self._maxmag_freq:
+        if _root and _root != self._maxmag_freq.label:
             logger.debug('%s vs %s', _root, self._maxmag_freq.label)
             self._has_fifth = True
             self._root = _root
@@ -157,35 +174,42 @@ class TriadFilter:
         _histogram_major = dict()
         _histogram_minor = dict()
         for nl in self._note_labels:
-            _third = nl.third
             if nl.third['minor'] in self._note_set:
-                self.build_histogram(_histogram_minor, _third['minor'])
+                self.build_histogram(_histogram_minor, nl.index)
             if nl.third['major'] in self._note_set:
-                self.build_histogram(_histogram_major, _third['major'])
+                self.build_histogram(_histogram_major, nl.index)
         _root_minor = self.parse_historgram(_histogram_minor)
         _root_major = self.parse_historgram(_histogram_major)
         if (_root_minor and _root_minor == self._root) or (_root_major and _root_major == self._root):
             if _root_major and _root_minor:
                 if _root_major in self._note_set and _root_minor not in self._note_set:
                     self._third = ' maj'
+                    if _root_major != self._root:
+                        self._root = _root_major
                 elif _root_minor in self._note_set and _root_major not in self._note_set:
                     self._third = ' m'
+                    if _root_minor != self._root:
+                        self._root = _root_minor
                 else:
                     _major_value = _histogram_major[_root_major]
                     _minor_value = _histogram_minor[_root_minor]
                     if _major_value > _minor_value:
                         self._third = ' maj'
+                        if _root_major != self._root:
+                            self._root = _root_major
                     elif _minor_value > _major_value:
                         self._third = ' m'
-        elif _root_major:
+                        if _root_minor != self._root:
+                            self._root = _root_minor
+        elif _root_major or _root_minor:
             if _root_major in self._note_set:
                 self._third = ' maj'
+                if _root_major != self._root:
+                    self._root = _root_major
             elif _root_minor in self._note_set:
                 self._third = ' m'
-        # if self._third :
-        #     logger.debug('%s, has_fifth: %s', self._root, self._has_fifth)
-        #     if self._has_fifth:
-        #         self._root = _root
+                if _root_minor != self._root:
+                    self._root = _root_minor
 
     def filter(self) -> dict:
         self.find_maxima()
