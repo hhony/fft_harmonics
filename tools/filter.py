@@ -16,13 +16,15 @@ class NoteLabel:
 
 class TriadFilter:
     def __init__(self, x, y):
-        self._magnitude = 8000
+        self._magnitude = 5000
         self._maxima = argrelextrema(y, greater)
         for i in self._maxima:
             self._y = y[i]
             self._x = x[i]
         self._yy = []
         self._xx = []
+        self._upper_limit = 830.61 + ((880.0 - 830.61) / 2) # halfway between A♯|B♭ below octave
+        self._lower_limit = 440.0 - ((440.0 - 415.305) / 2) # halfway between A♯|B♭ below unison
         self._freqs = [
             440.0,
             466.16,
@@ -102,22 +104,34 @@ class TriadFilter:
         self._third = ''
 
     def find_note(self, value: float, magnitude=0.) -> NoteLabel:
+        # logger.debug('finding: %s with mag: %s', value, magnitude)
         note = NoteLabel()
         note.frequency = value
         note.magnitude = magnitude
-        _upper = self._freqs[len(self._freqs)-1]
-        _lower = self._freqs[0]
+        # find octave shift
+        _upper = self._upper_limit
+        _lower = self._lower_limit
         _octave = 0
-        if value > _upper:
-            while value > _upper:
-                value /= 2
+        _harmonic = value
+        if _harmonic > _upper:
+            while _harmonic > _upper:
+                _harmonic /= 2
                 _octave += 1
-        elif value < _lower:
-            while value < _lower:
-                value *= 2
+        elif _harmonic < _lower:
+            while _harmonic < _lower:
+                _harmonic *= 2
                 _octave += 1
             _octave *= -1
-        _value = [abs(float(1 - (value/i))) for i in self._freqs]
+        # apply shifted
+        if _octave < 0:
+            _freqs = [float(_f/(-2 * _octave)) for _f in self._freqs]
+        elif _octave > 0:
+            _freqs = [float(_f * (2 * _octave)) for _f in self._freqs]
+        else:
+            _freqs = self._freqs
+        note.octave = _octave
+        # find nearest
+        _value = [abs(float(value - i)) for i in _freqs]
         _index = _value.index(min(_value))
         note.index = _index
         note.label = self._roots[note.index]
@@ -126,6 +140,7 @@ class TriadFilter:
             'minor': self._roots[self._minors.index(note.label)],
             'major': self._roots[self._majors.index(note.label)]
         }
+        # logger.debug('found: %s is "%s", shifted: %s', value, note.label, note.octave)
         return note
 
     def find_maxima(self):
