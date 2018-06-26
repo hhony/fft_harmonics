@@ -121,8 +121,11 @@ class TriadFilter:
         _index = _value.index(min(_value))
         note.index = _index
         note.label = self._roots[note.index]
-        note.fifth = self._fifths[note.index]
-        note.third = { 'minor': self._minors[note.index], 'major': self._majors[note.index] }
+        note.fifth = self._roots[self._fifths.index(note.label)]
+        note.third = {
+            'minor': self._roots[self._minors.index(note.label)],
+            'major': self._roots[self._majors.index(note.label)]
+        }
         return note
 
     def find_maxima(self):
@@ -141,8 +144,7 @@ class TriadFilter:
         # else:
         #     logger.debug('...')
 
-    def build_histogram(self, histogram: dict, index: int):
-        key = self._roots[index]
+    def build_histogram(self, histogram: dict, key: str):
         if key not in histogram:
             histogram[key] = 1
             return
@@ -163,7 +165,7 @@ class TriadFilter:
         for nl in self._note_labels:
             _fifth = nl.fifth
             if _fifth in self._note_set:
-                self.build_histogram(_histogram, nl.index)
+                self.build_histogram(_histogram, _fifth)
         _root = self.parse_historgram(_histogram)
         if _root and _root != self._maxmag_freq.label:
             logger.debug('%s vs %s', _root, self._maxmag_freq.label)
@@ -175,9 +177,9 @@ class TriadFilter:
         _histogram_minor = dict()
         for nl in self._note_labels:
             if nl.third['minor'] in self._note_set:
-                self.build_histogram(_histogram_minor, nl.index)
+                self.build_histogram(_histogram_minor, nl.third['minor'])
             if nl.third['major'] in self._note_set:
-                self.build_histogram(_histogram_major, nl.index)
+                self.build_histogram(_histogram_major, nl.third['major'])
         _root_minor = self.parse_historgram(_histogram_minor)
         _root_major = self.parse_historgram(_histogram_major)
         if (_root_minor and _root_minor == self._root) or (_root_major and _root_major == self._root):
