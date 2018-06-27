@@ -151,6 +151,7 @@ class TriadFilter:
         if self._yy:
             _max_idx = self._yy.index(max(self._yy))
             self._maxmag_freq = self.find_note(self._xx[_max_idx], self._yy[_max_idx])
+            self.change_root(self._maxmag_freq.label) # first pass guess
             self._note_labels = [self.find_note(x, y) for x, y in zip(self._xx, self._yy)]
             self._note_set = [note.label for note in self._note_labels]
             logger.debug('max: (%s) _n: %s', self._maxmag_freq.label, self._note_set)
@@ -175,6 +176,13 @@ class TriadFilter:
                 _root = key
         return _root
 
+    def change_root(self, root: str) -> bool:
+        if root and root != self._root:
+            logger.debug('change root: (%s) from (%s)', root, self._root)
+            self._root = root
+            return True
+        return False
+
     def find_relative_dominate(self):
         _histogram = dict()
         for nl in self._note_labels:
@@ -182,10 +190,7 @@ class TriadFilter:
             if _fifth in self._note_set:
                 self.build_histogram(_histogram, _fifth)
         _root = self.parse_historgram(_histogram)
-        if _root and _root != self._maxmag_freq.label:
-            logger.debug('%s vs %s', _root, self._maxmag_freq.label)
-            self._has_fifth = True
-            self._root = _root
+        self._has_fifth = self.change_root(_root)
 
     def find_major_minor(self):
         _histogram_major = dict()
@@ -197,36 +202,29 @@ class TriadFilter:
                 self.build_histogram(_histogram_major, nl.third['major'])
         _root_minor = self.parse_historgram(_histogram_minor)
         _root_major = self.parse_historgram(_histogram_major)
-        if (_root_minor and _root_minor == self._root) or (_root_major and _root_major == self._root):
-            if _root_major and _root_minor:
-                if _root_major in self._note_set and _root_minor not in self._note_set:
+        if _root_major and _root_minor:
+            if _root_major in self._note_set and _root_minor not in self._note_set:
+                self._third = ' maj'
+                self.change_root(_root_major)
+            elif _root_minor in self._note_set and _root_major not in self._note_set:
+                self._third = ' m'
+                self.change_root(_root_minor)
+            else:
+                _major_value = _histogram_major[_root_major]
+                _minor_value = _histogram_minor[_root_minor]
+                if _major_value > _minor_value:
                     self._third = ' maj'
-                    if _root_major != self._root:
-                        self._root = _root_major
-                elif _root_minor in self._note_set and _root_major not in self._note_set:
+                    self.change_root(_root_major)
+                elif _minor_value > _major_value:
                     self._third = ' m'
-                    if _root_minor != self._root:
-                        self._root = _root_minor
-                else:
-                    _major_value = _histogram_major[_root_major]
-                    _minor_value = _histogram_minor[_root_minor]
-                    if _major_value > _minor_value:
-                        self._third = ' maj'
-                        if _root_major != self._root:
-                            self._root = _root_major
-                    elif _minor_value > _major_value:
-                        self._third = ' m'
-                        if _root_minor != self._root:
-                            self._root = _root_minor
-        elif _root_major or _root_minor:
+                    self.change_root(_root_minor)
+        else: # _root_major or _root_minor
             if _root_major in self._note_set:
                 self._third = ' maj'
-                if _root_major != self._root:
-                    self._root = _root_major
+                self.change_root(_root_major)
             elif _root_minor in self._note_set:
                 self._third = ' m'
-                if _root_minor != self._root:
-                    self._root = _root_minor
+                self.change_root(_root_minor)
 
     def filter(self) -> dict:
         self.find_maxima()
