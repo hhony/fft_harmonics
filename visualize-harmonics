@@ -34,6 +34,11 @@ if __name__ == '__main__':
         dest='log_level', default='INFO',
         help='sets the default logging level'
     )
+    parser.add_argument(
+        '-v', '--verbose',
+        dest='verbose', action='store_true', default=False,
+        help='shows verbose signal output'
+    )
     args = parser.parse_args()
 
     if args.log_level != 'INFO':
@@ -48,7 +53,7 @@ if __name__ == '__main__':
         if not _audio.has_captured:
             return
         x, y = _audio.fft()
-        triad = TriadFilter(x, y)
+        triad = TriadFilter(x, y, verbose=args.verbose)
         chord = triad.filter()
         _plot.draw('frequencies', x, y)
         if chord['root']:
