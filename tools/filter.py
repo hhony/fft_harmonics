@@ -166,7 +166,7 @@ class TriadFilter:
             return
         histogram[key] += 1
 
-    def parse_historgram(self, histogram: dict) -> str:
+    def parse_histogram(self, histogram: dict) -> str:
         _max = 0
         _root = ''
         for key in histogram:
@@ -189,7 +189,7 @@ class TriadFilter:
             _fifth = nl.fifth
             if _fifth in self._note_set:
                 self.build_histogram(_histogram, _fifth)
-        _root = self.parse_historgram(_histogram)
+        _root = self.parse_histogram(_histogram)
         self._has_fifth = self.change_root(_root)
 
     def find_major_minor(self):
@@ -200,8 +200,8 @@ class TriadFilter:
                 self.build_histogram(_histogram_minor, nl.third['minor'])
             if nl.third['major'] in self._note_set:
                 self.build_histogram(_histogram_major, nl.third['major'])
-        _root_minor = self.parse_historgram(_histogram_minor)
-        _root_major = self.parse_historgram(_histogram_major)
+        _root_minor = self.parse_histogram(_histogram_minor)
+        _root_major = self.parse_histogram(_histogram_major)
         if _root_major and _root_minor:
             if _root_major in self._note_set and _root_minor not in self._note_set:
                 self._third = ' maj'
