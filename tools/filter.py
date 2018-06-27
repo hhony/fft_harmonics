@@ -15,7 +15,8 @@ class NoteLabel:
 
 
 class TriadFilter:
-    def __init__(self, x, y):
+    def __init__(self, x, y, verbose=False):
+        self._verbose = verbose
         self._magnitude = 5000
         self._maxima = argrelextrema(y, greater)
         for i in self._maxima:
@@ -103,8 +104,32 @@ class TriadFilter:
         self._root = ''
         self._third = ''
 
+    def change_root(self, root: str) -> bool:
+        if root and root != self._root:
+            logger.debug('change root: (%s) from (%s)', root, self._root)
+            self._root = root
+            return True
+        return False
+
+    def build_histogram(self, histogram: dict, key: str):
+        if key not in histogram:
+            histogram[key] = 1
+            return
+        histogram[key] += 1
+
+    def parse_histogram(self, histogram: dict) -> str:
+        _max = 0
+        _root = ''
+        for key in histogram:
+            _value = histogram[key]
+            if _value > _max:
+                _max = _value
+                _root = key
+        return _root
+
     def find_note(self, value: float, magnitude=0.) -> NoteLabel:
-        # logger.debug('finding: %s with mag: %s', value, magnitude)
+        if self._verbose:
+            logger.debug('finding: %s with mag: %s', value, magnitude)
         note = NoteLabel()
         note.frequency = value
         note.magnitude = magnitude
@@ -140,7 +165,8 @@ class TriadFilter:
             'minor': self._roots[self._minors.index(note.label)],
             'major': self._roots[self._majors.index(note.label)]
         }
-        # logger.debug('found: %s is "%s", shifted: %s', value, note.label, note.octave)
+        if self._verbose:
+            logger.debug('found: %s is "%s", shifted: %s', value, note.label, note.octave)
         return note
 
     def find_maxima(self):
@@ -157,31 +183,6 @@ class TriadFilter:
             logger.debug('max: (%s) _n: %s', self._maxmag_freq.label, self._note_set)
             logger.debug('_xx: %s', [note.frequency for note in self._note_labels])
             logger.debug('_yy: %s', [note.magnitude for note in self._note_labels])
-        # else:
-        #     logger.debug('...')
-
-    def build_histogram(self, histogram: dict, key: str):
-        if key not in histogram:
-            histogram[key] = 1
-            return
-        histogram[key] += 1
-
-    def parse_histogram(self, histogram: dict) -> str:
-        _max = 0
-        _root = ''
-        for key in histogram:
-            _value = histogram[key]
-            if _value > _max:
-                _max = _value
-                _root = key
-        return _root
-
-    def change_root(self, root: str) -> bool:
-        if root and root != self._root:
-            logger.debug('change root: (%s) from (%s)', root, self._root)
-            self._root = root
-            return True
-        return False
 
     def find_relative_dominate(self):
         _histogram = dict()
