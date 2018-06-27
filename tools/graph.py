@@ -15,6 +15,9 @@ class PlotSignalWindow():
         # enable anti-aliasing
         setConfigOptions(antialias=True)
         self.canvas = self.win.addPlot(title="Fast Fourier Transform")
+        # limit plot to 20Hz to 20kHz and clamp magnitude
+        self.canvas.setXRange(0, 20000)
+        self.canvas.setYRange(0, 100000)
 
     def start(self):
         if (flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
