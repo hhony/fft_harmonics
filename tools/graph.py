@@ -23,8 +23,8 @@ class PlotSignalWindow():
         if (flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
             QtGui.QApplication.instance().exec_()
 
-    def draw(self, name: str, _x, _y):
+    def draw(self, name: str, _x, _y, pen='y'):
         if name in self.signal:
             self.signal[name].setData(_x, _y)
         else:
-            self.signal[name] = self.canvas.plot(pen='y')
+            self.signal[name] = self.canvas.plot(pen=pen)
