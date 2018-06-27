@@ -30,6 +30,11 @@ if __name__ == '__main__':
         help='sets the refresh rate of graph in milliseconds. default: 50'
     )
     parser.add_argument(
+        '--db-threshold', '--threshold',
+        dest='threshold', default=5000.,
+        help='sets the default magnitude threshold level'
+    )
+    parser.add_argument(
         '--log-level',
         dest='log_level', default='INFO',
         help='sets the default logging level'
@@ -53,9 +58,10 @@ if __name__ == '__main__':
         if not _audio.has_captured:
             return
         x, y = _audio.fft()
-        triad = TriadFilter(x, y, verbose=args.verbose)
+        triad = TriadFilter(x, y, verbose=args.verbose, threshold=float(args.threshold))
         chord = triad.filter()
         _plot.draw('frequencies', x, y)
+        _plot.draw('threshold', x, triad.threshold(), pen='g')
         if chord['root']:
             logger.info('chord: %s%s', chord['root'], chord['third'])
         _audio.has_captured = False

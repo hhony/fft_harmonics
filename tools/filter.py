@@ -1,4 +1,4 @@
-from numpy import greater
+from numpy import empty, greater, ndarray
 from scipy.signal import argrelextrema
 
 from .log import logger
@@ -15,9 +15,11 @@ class NoteLabel:
 
 
 class TriadFilter:
-    def __init__(self, x, y, verbose=False):
+    def __init__(self, x, y, verbose=False, threshold=5000.):
         self._verbose = verbose
-        self._magnitude = 5000
+        self._magnitude = threshold
+        self._threshold = empty(y.size)
+        self._threshold.fill(self._magnitude)
         self._maxima = argrelextrema(y, greater)
         for i in self._maxima:
             self._y = y[i]
@@ -103,6 +105,9 @@ class TriadFilter:
         self._has_fifth = False
         self._root = ''
         self._third = ''
+
+    def threshold(self) -> ndarray:
+        return self._threshold
 
     def change_root(self, root: str) -> bool:
         if root and root != self._root:
