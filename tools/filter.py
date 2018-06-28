@@ -11,7 +11,7 @@ class NoteLabel:
         self.index = 0
         self.label = ''
         self.fifth = ''
-        self.third = dict()
+        self.third = [-1, -1]
 
 
 class TriadFilter:
@@ -102,35 +102,37 @@ class TriadFilter:
         self._note_set = list()
         self._note_labels = list()
         self._maxmag_freq = None
-        self._has_fifth = False
         self._root = ''
-        self._third = ''
+        self._third = [-1, -1]
+        self._dominate = [-1, -1, -1]
 
     def threshold(self) -> ndarray:
         return self._threshold
 
-    def change_root(self, root: str) -> bool:
+    def change_root(self, root: str, test=False) -> int:
         if root and root != self._root:
             logger.debug('change root: (%s) from (%s)', root, self._root)
-            self._root = root
-            return True
-        return False
+            if not test:
+                self._root = root
+            else:
+                return self._roots.index(root)
+        return self._roots.index(self._root)
 
-    def build_histogram(self, histogram: dict, key: str):
-        if key not in histogram:
-            histogram[key] = 1
+    def test_root(self, index: int) -> int:
+        if index > 0:
+            return self.change_root(self._roots[index], True)
+        return index
+
+    def build_histogram(self, histogram: list, index: int):
+        if histogram[index] < 0:
+            histogram[index] = 1
             return
-        histogram[key] += 1
+        histogram[index] += 1
 
-    def parse_histogram(self, histogram: dict) -> str:
-        _max = 0
-        _root = ''
-        for key in histogram:
-            _value = histogram[key]
-            if _value > _max:
-                _max = _value
-                _root = key
-        return _root
+    def parse_histogram(self, histogram: list) -> int:
+        if self._verbose:
+            logger.debug('parse histogram: %s', histogram)
+        return histogram.index(max(histogram))
 
     def find_note(self, value: float, magnitude=0.) -> NoteLabel:
         if self._verbose:
@@ -167,17 +169,17 @@ class TriadFilter:
         note.label = self._roots[note.index]
         for interval in range(2, 8):
             if interval == 3:
-                note.third = {
-                    'minor': self._roots[self._min_3rd.index(note.label)],
-                    'major': self._roots[self._maj_3rd.index(note.label)]
-                }
+                note.third = [
+                    self._min_3rd.index(note.label),
+                    self._maj_3rd.index(note.label)
+                ]
             elif interval in [4, 5] and interval < 5:
-                note.fifth = self._roots[self._fifths.index(note.label)]
+                note.fifth = self._fifths.index(note.label)
         if self._verbose:
             logger.debug('found: %s is "%s", shifted: %s', value, note.label, note.octave)
         return note
 
-    def find_maxima(self):
+    def find_maxima(self) -> bool:
         for i, idx in zip(self._y, range(len(self._y))):
             if i > self._magnitude:
                 self._yy.append(i)
@@ -187,66 +189,63 @@ class TriadFilter:
             self._maxmag_freq = self.find_note(self._xx[_max_idx], self._yy[_max_idx])
             self.change_root(self._maxmag_freq.label) # first pass guess
             self._note_labels = [self.find_note(x, y) for x, y in zip(self._xx, self._yy)]
-            self._note_set = [note.label for note in self._note_labels]
+            self._note_set = [self._roots.index(note.label) for note in self._note_labels]
             logger.debug('max: (%s) _n: %s', self._maxmag_freq.label, self._note_set)
             logger.debug('_xx: %s', [note.frequency for note in self._note_labels])
             logger.debug('_yy: %s', [note.magnitude for note in self._note_labels])
-
-    def find_relative_dominate(self):
-        _histogram = dict()
-        for nl in self._note_labels:
-            _fifth = nl.fifth
-            if _fifth in self._note_set:
-                self.build_histogram(_histogram, _fifth)
-        _root = self.parse_histogram(_histogram)
-        self._has_fifth = self.change_root(_root)
+            return True
+        return False
 
     def find_major_minor(self, interval: int):
-        _output = {'major': ' maj', 'minor': ' m'}
-        _stores = ''
-        _histogram_major = dict()
-        _histogram_minor = dict()
+        _histogram_major = [-1 for i in range(12)]
+        _histogram_minor = [-1 for i in range(12)]
         for nl in self._note_labels:
             if interval is 3:
-                if nl.third['minor'] in self._note_set:
-                    self.build_histogram(_histogram_minor, nl.third['minor'])
-                if nl.third['major'] in self._note_set:
-                    self.build_histogram(_histogram_major, nl.third['major'])
-        _root_minor = self.parse_histogram(_histogram_minor)
-        _root_major = self.parse_histogram(_histogram_major)
-        if _root_major and _root_minor:
-            if _root_major in self._note_set and _root_minor not in self._note_set:
-                _stores = 'major'
-                self.change_root(_root_major)
-            elif _root_minor in self._note_set and _root_major not in self._note_set:
-                _stores = 'minor'
-                self.change_root(_root_minor)
-            else:
-                _major_value = _histogram_major[_root_major]
-                _minor_value = _histogram_minor[_root_minor]
-                if _major_value > _minor_value:
-                    _stores = 'major'
-                    self.change_root(_root_major)
-                elif _minor_value > _major_value:
-                    _stores = 'minor'
-                    self.change_root(_root_minor)
-        else: # _root_major or _root_minor
-            if _root_major in self._note_set:
-                _stores = 'major'
-                self.change_root(_root_major)
-            elif _root_minor in self._note_set:
-                _stores = 'minor'
-                self.change_root(_root_minor)
-        if _stores:
-            if interval == 3:
-                self._third = _output[_stores]
+                if nl.third[0] in self._note_set:
+                    self.build_histogram(_histogram_minor, nl.third[0])
+                if nl.third[1] in self._note_set:
+                    self.build_histogram(_histogram_major, nl.third[1])
+            elif interval in [4, 5] and interval < 5:
+                if nl.fifth in self._note_set:
+                    self.build_histogram(_histogram_major, nl.fifth)
+        if interval is 3:
+            self._third[0] = self.test_root(self.parse_histogram(_histogram_minor))
+            self._third[1] = self.test_root(self.parse_histogram(_histogram_major))
+        elif interval in [4, 5] and interval < 5:
+            self._dominate[2] = self.test_root(self.parse_histogram(_histogram_major))
 
     def find_intervals(self):
         for interval in range(2, 8):
             self.find_major_minor(interval)
 
+    def find_relative_dominate(self):
+        _idx = self.parse_histogram(self._dominate)
+
+        if _idx == 2 and self._dominate[2] > -1:
+            self.change_root(self._roots[self._dominate[2]])
+
+    def find_3rds(self) -> str:
+        _output = [' maj', ' m']
+        _stores = -1
+        if self._third[1] and self._third[0]: # major and minor
+            if self._third[1] in self._note_set and self._third[0] not in self._note_set:
+                _stores = 0
+            elif self._third[0] in self._note_set and self._third[1] not in self._note_set:
+                _stores = 1
+        else: # major or minor
+            if self._third[1] in self._note_set:
+                _stores = 1
+            elif self._third[0] in self._note_set:
+                _stores = 0
+        if _stores > -1:
+            self.change_root(self._roots[self._third[_stores]])
+            return _output[_stores]
+        return ''
+
     def filter(self) -> dict:
-        self.find_maxima()
-        self.find_relative_dominate()
-        self.find_intervals()
-        return { 'root': self._root, 'third': self._third }
+        _third = ''
+        if self.find_maxima():
+            self.find_intervals()
+            self.find_relative_dominate()
+            _third = self.find_3rds()
+        return { 'root': self._root, 'third': _third }
