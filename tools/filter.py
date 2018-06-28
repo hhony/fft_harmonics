@@ -10,8 +10,8 @@ class NoteLabel:
         self.octave = 0
         self.index = 0
         self.label = ''
-        self.fifth = ''
         self.third = [-1, -1]
+        self.dominate = [-1 , -1, -1]
 
 
 class TriadFilter:
@@ -59,7 +59,21 @@ class TriadFilter:
             'G',
             'G♯|A♭'
         ]
-        self._fifths = [
+        self._dom_4th = [
+            'D',
+            'D♯|E♭',
+            'E',
+            'F',
+            'F♯|G♭',
+            'G',
+            'G♯|A♭',
+            'A',
+            'A♯|B♭',
+            'B',
+            'C',
+            'C♯|D♭'
+        ]
+        self._dom_5th = [
             'E',
             'F',
             'F♯|G♭',
@@ -192,7 +206,8 @@ class TriadFilter:
                         self._maj_3rd.index(note.label)
                     ]
                 elif interval in [4, 5] and interval < 5:
-                    note.fifth = self._fifths.index(note.label)
+                    note.dominate[0] = self._dom_4th.index(note.label)
+                    note.dominate[2] = self._dom_5th.index(note.label)
             if self._verbose:
                 logger.debug('found: %s is "%s", shifted: %s', value, note.label, note.octave)
             return note
@@ -243,11 +258,13 @@ class TriadFilter:
                     self.build_histogram(_histogram_minor, nl.third[0], nl.octave)
                     self.build_histogram(_histogram_major, nl.third[1], nl.octave)
                 elif interval in [4, 5] and interval < 5:
-                    self.build_histogram(_histogram_major, nl.fifth, nl.octave)
+                    self.build_histogram(_histogram_minor, nl.dominate[0], nl.octave)
+                    self.build_histogram(_histogram_major, nl.dominate[2], nl.octave)
             if interval is 3:
                 self._third[0] = self.test_root(self.parse_histogram(_histogram_minor, 'minor 3rd'))
                 self._third[1] = self.test_root(self.parse_histogram(_histogram_major, 'major 3rd'))
             elif interval in [4, 5] and interval < 5:
+                self._dominate[0] = self.test_root(self.parse_histogram(_histogram_minor, '4th'))
                 self._dominate[2] = self.test_root(self.parse_histogram(_histogram_major, '5th'))
 
     def find_relative_dominate(self):
