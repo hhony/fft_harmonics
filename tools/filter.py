@@ -70,7 +70,7 @@ class TriadFilter:
         self._profile_gains = [0.075, 0.15, 0.6, 0.85, 0.6, 0.15, 0.3, 0.15]
         self._root = ''
         self._third = [-1, -1]
-        self._dominate = [-1, -1, -1]
+        self._dominant = [-1, -1, -1]
 
     def threshold(self) -> ndarray:
         return self._threshold
@@ -209,18 +209,18 @@ class TriadFilter:
                     self.build_histogram(_histogram_minor, nl.third[0], nl.octave)
                     self.build_histogram(_histogram_major, nl.third[1], nl.octave)
                 elif interval in [4, 5] and interval < 5:
-                    self.build_histogram(_histogram_minor, nl.dominate[0], nl.octave)
-                    self.build_histogram(_histogram_major, nl.dominate[2], nl.octave)
+                    self.build_histogram(_histogram_minor, nl.dominant[0], nl.octave)
+                    self.build_histogram(_histogram_major, nl.dominant[2], nl.octave)
             if interval is 3:
                 self._third[0] = self.test_root(self.parse_histogram(_histogram_minor, 'minor 3rd'))
                 self._third[1] = self.test_root(self.parse_histogram(_histogram_major, 'major 3rd'))
             elif interval in [4, 5] and interval < 5:
-                self._dominate[0] = self.test_root(self.parse_histogram(_histogram_minor, '4th'))
-                self._dominate[2] = self.test_root(self.parse_histogram(_histogram_major, '5th'))
+                self._dominant[0] = self.test_root(self.parse_histogram(_histogram_minor, '4th'))
+                self._dominant[2] = self.test_root(self.parse_histogram(_histogram_major, '5th'))
 
-    def find_relative_dominate(self):
-        if self._dominate[2] > -1:
-            self.change_root(self._roots[self._dominate[2]])
+    def find_relative_dominant(self):
+        if self._dominant[2] > -1:
+            self.change_root(self._roots[self._dominant[2]])
 
     def find_3rds(self) -> str:
         _output = [' maj', ' m']
@@ -245,6 +245,6 @@ class TriadFilter:
         if self.find_maxima():
             self.find_spacial_profile()
             self.find_intervals()
-            self.find_relative_dominate()
+            self.find_relative_dominant()
             _third = self.find_3rds()
         return { 'root': self._root, 'third': _third }
