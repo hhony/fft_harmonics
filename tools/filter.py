@@ -59,34 +59,6 @@ class TriadFilter:
             'G',
             'G♯|A♭'
         ]
-        self._dom_4th = [
-            'D',
-            'D♯|E♭',
-            'E',
-            'F',
-            'F♯|G♭',
-            'G',
-            'G♯|A♭',
-            'A',
-            'A♯|B♭',
-            'B',
-            'C',
-            'C♯|D♭'
-        ]
-        self._dom_5th = [
-            'E',
-            'F',
-            'F♯|G♭',
-            'G',
-            'G♯|A♭',
-            'A',
-            'A♯|B♭',
-            'B',
-            'C',
-            'C♯|D♭',
-            'D',
-            'D♯|E♭'
-        ]
         self._min_3rd = [
             'C',
             'C♯|D♭',
@@ -114,6 +86,34 @@ class TriadFilter:
             'A♯|B♭',
             'B',
             'C'
+        ]
+        self._dom_4th = [
+            'D',
+            'D♯|E♭',
+            'E',
+            'F',
+            'F♯|G♭',
+            'G',
+            'G♯|A♭',
+            'A',
+            'A♯|B♭',
+            'B',
+            'C',
+            'C♯|D♭'
+        ]
+        self._dom_5th = [
+            'E',
+            'F',
+            'F♯|G♭',
+            'G',
+            'G♯|A♭',
+            'A',
+            'A♯|B♭',
+            'B',
+            'C',
+            'C♯|D♭',
+            'D',
+            'D♯|E♭'
         ]
         self._note_set = list()
         self._note_labels = list()
