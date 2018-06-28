@@ -146,9 +146,9 @@ class TriadFilter:
         else:
             logger.warning('skipping: %s in octave: %s', self._roots[index], octave)
 
-    def parse_histogram(self, histogram: list) -> int:
+    def parse_histogram(self, histogram: list, label='') -> int:
         if self._verbose:
-            logger.debug('parse histogram: %s', histogram)
+            logger.debug('parse (%s) histogram: %s', label, histogram)
         return histogram.index(max(histogram))
 
     def find_note(self, value: float, magnitude=0.) -> (NoteLabel or None):
@@ -245,15 +245,13 @@ class TriadFilter:
                 elif interval in [4, 5] and interval < 5:
                     self.build_histogram(_histogram_major, nl.fifth, nl.octave)
             if interval is 3:
-                self._third[0] = self.test_root(self.parse_histogram(_histogram_minor))
-                self._third[1] = self.test_root(self.parse_histogram(_histogram_major))
+                self._third[0] = self.test_root(self.parse_histogram(_histogram_minor, 'minor 3rd'))
+                self._third[1] = self.test_root(self.parse_histogram(_histogram_major, 'major 3rd'))
             elif interval in [4, 5] and interval < 5:
-                self._dominate[2] = self.test_root(self.parse_histogram(_histogram_major))
+                self._dominate[2] = self.test_root(self.parse_histogram(_histogram_major, '5th'))
 
     def find_relative_dominate(self):
-        _idx = self.parse_histogram(self._dominate)
-
-        if _idx == 2 and self._dominate[2] > -1:
+        if self._dominate[2] > -1:
             self.change_root(self._roots[self._dominate[2]])
 
     def find_3rds(self) -> str:
