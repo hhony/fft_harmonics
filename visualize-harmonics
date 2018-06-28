@@ -31,8 +31,13 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--db-gain',
-        dest='db_gain', default=1e-2,
-        help='capture: adjust the capture gain'
+        dest='db_gain', default=1e-1,
+        help='capture: adjust the capture gain log10'
+    )
+    parser.add_argument(
+        '--single-tail-fft',
+        dest='single_tail', action='store_true', default=False,
+        help='capture: single-tail fft'
     )
     parser.add_argument(
         '--log-level',
@@ -62,7 +67,10 @@ if __name__ == '__main__':
         global _plot, _audio
         if not _audio.has_captured:
             return
-        x, y = _audio.fft(db_gain=float(args.db_gain))
+        x, y = _audio.fft(
+            db_gain=float(args.db_gain),
+            single_tail=float(args.single_tail)
+        )
         triad = TriadFilter(
             x, y,
             verbose=args.verbose,
