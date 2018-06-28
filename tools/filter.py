@@ -11,7 +11,7 @@ class NoteLabel:
         self.index = 0
         self.label = ''
         self.third = [-1, -1]
-        self.dominate = [-1 , -1, -1]
+        self.dominant = [-1 , -1, -1]
 
 
 class TriadFilter:
@@ -59,62 +59,10 @@ class TriadFilter:
             'G',
             'G♯|A♭'
         ]
-        self._min_3rd = [
-            'C',
-            'C♯|D♭',
-            'D',
-            'D♯|E♭',
-            'E',
-            'F',
-            'F♯|G♭',
-            'G',
-            'G♯|A♭',
-            'A',
-            'A♯|B♭',
-            'B'
-        ]
-        self._maj_3rd = [
-            'C♯|D♭',
-            'D',
-            'D♯|E♭',
-            'E',
-            'F',
-            'F♯|G♭',
-            'G',
-            'G♯|A♭',
-            'A',
-            'A♯|B♭',
-            'B',
-            'C'
-        ]
-        self._dom_4th = [
-            'D',
-            'D♯|E♭',
-            'E',
-            'F',
-            'F♯|G♭',
-            'G',
-            'G♯|A♭',
-            'A',
-            'A♯|B♭',
-            'B',
-            'C',
-            'C♯|D♭'
-        ]
-        self._dom_5th = [
-            'E',
-            'F',
-            'F♯|G♭',
-            'G',
-            'G♯|A♭',
-            'A',
-            'A♯|B♭',
-            'B',
-            'C',
-            'C♯|D♭',
-            'D',
-            'D♯|E♭'
-        ]
+        self._minor_3rd = 3
+        self._major_3rd = 4
+        self._dominant_4th = 5
+        self._dominant_5th = 6
         self._note_set = list()
         self._note_labels = list()
         self._maxmag_freq = None
@@ -141,6 +89,9 @@ class TriadFilter:
         if index > 0:
             return self.change_root(self._roots[index], True)
         return index
+
+    def get_interval(self, index: int, offset: int):
+        return (index + offset) % len(self._roots)
 
     def build_profile(self, nl: NoteLabel):
         if nl.octave >= -3 and nl.octave <= 4:
@@ -202,12 +153,12 @@ class TriadFilter:
             for interval in range(2, 8):
                 if interval == 3:
                     note.third = [
-                        self._min_3rd.index(note.label),
-                        self._maj_3rd.index(note.label)
+                        self.get_interval(_index, self._minor_3rd),
+                        self.get_interval(_index, self._major_3rd)
                     ]
                 elif interval in [4, 5] and interval < 5:
-                    note.dominate[0] = self._dom_4th.index(note.label)
-                    note.dominate[2] = self._dom_5th.index(note.label)
+                    note.dominant[0] = self.get_interval(_index, self._dominant_4th)
+                    note.dominant[2] = self.get_interval(_index, self._dominant_5th)
             if self._verbose:
                 logger.debug('found: %s is "%s", shifted: %s', value, note.label, note.octave)
             return note
