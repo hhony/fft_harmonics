@@ -71,18 +71,23 @@ class AudioCapture:
         data = average(data, 1)
         return data
 
-    def fft(self, data=None, trim=10, log_scale=False, divisor=100) -> tuple:
+    def fft(self, data=None, slice=10, log_scale=False, db_gain=1e-2, single_tail=False) -> tuple:
         if data is None:
             data = self._x_audio.flatten()
-        lhs, rhs = split( abs( fft.fft(data) ), 2)
-        _y = add(lhs, rhs[::-1])
+        _buffer_size = self._buffer_size
+        if single_tail:
+            _buffer_size = float(self._buffer_size / 2)
+            lhs, rhs = split( abs( fft.fft(data) ), 2)
+            _y = add(lhs, rhs[::-1])
+        else:
+            _y = abs( fft.fft(data) )
+        _x = arange(_buffer_size, dtype=float)
         if log_scale:
             _y = multiply(20, log10(_y))
-        _x = arange(float(self._buffer_size / 2), dtype=float)
-        if trim:
-            i = int((self._buffer_size / 2) / trim)
+        if slice:
+            i = int(_buffer_size / slice)
             _y = _y[:i]
             _x = _x[:i] * float(self._bitrate / self._buffer_size)
-        if divisor:
-            _y = _y / float(divisor)
+        if db_gain:
+            _y = float(db_gain) * _y
         return _x, _y
