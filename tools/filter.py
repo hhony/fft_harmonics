@@ -26,8 +26,11 @@ class TriadFilter:
             self._x = x[i]
         self._yy = []
         self._xx = []
-        self._upper_limit = 830.61 + ((880.0 - 830.61) / 2) # halfway between A♯|B♭ below octave
-        self._lower_limit = 440.0 - ((440.0 - 415.305) / 2) # halfway between A♯|B♭ below unison
+        # center filter on A1 to C8 within A4 to A5 window
+        self._upper_window_limit = 830.61 + ((880.0 - 830.61) / 2) # halfway between A♯|B♭ below octave
+        self._lower_window_limit = 440.0 - ((440.0 - 415.305) / 2) # halfway between A♯|B♭ below unison
+        self._upper_filter_limit = 523.25 * 4      # upper C on piano keyboard (C8)
+        self._lower_filter_limit = 440.0 / (2 * 3) # lower A on piano keyboard (A1)
         self._freqs = [
             440.0,
             466.16,
@@ -56,7 +59,6 @@ class TriadFilter:
             'G',
             'G♯|A♭'
         ]
-
         self._fifths = [
             'E',
             'F',
@@ -102,6 +104,8 @@ class TriadFilter:
         self._note_set = list()
         self._note_labels = list()
         self._maxmag_freq = None
+        self._profile_notes = [0 for _ in range(-3, 5)]
+        self._profile_gains = [0.075, 0.15, 0.6, 0.85, 0.6, 0.15, 0.3, 0.15]
         self._root = ''
         self._third = [-1, -1]
         self._dominate = [-1, -1, -1]
@@ -111,10 +115,11 @@ class TriadFilter:
 
     def change_root(self, root: str, test=False) -> int:
         if root and root != self._root:
-            logger.debug('change root: (%s) from (%s)', root, self._root)
             if not test:
+                logger.debug('change root: (%s) from (%s)', root, self._root)
                 self._root = root
             else:
+                logger.debug('test root: %s from %s', root, self._root)
                 return self._roots.index(root)
         return self._roots.index(self._root)
 
@@ -123,61 +128,77 @@ class TriadFilter:
             return self.change_root(self._roots[index], True)
         return index
 
-    def build_histogram(self, histogram: list, index: int):
-        if histogram[index] < 0:
-            histogram[index] = 1
-            return
-        histogram[index] += 1
+    def build_profile(self, nl: NoteLabel):
+        if nl.octave >= -3 and nl.octave <= 4:
+            _idx = nl.octave + 3
+            self._profile_notes[_idx] += nl.magnitude
+        else:
+            logger.warning('out of range: %s at (%s, %s)', nl.label, nl.frequency, nl.magnitude)
+
+    def build_histogram(self, histogram: list, index: int, octave: int):
+        if octave >= -3 and octave <= 4:
+            _idx = octave + 3
+            if index in self._note_set:
+                if histogram[index] < 0:
+                    histogram[index] = self._profile_notes[_idx]
+                    return
+                histogram[index] += self._profile_notes[_idx]
+        else:
+            logger.warning('skipping: %s in octave: %s', self._roots[index], octave)
 
     def parse_histogram(self, histogram: list) -> int:
         if self._verbose:
             logger.debug('parse histogram: %s', histogram)
         return histogram.index(max(histogram))
 
-    def find_note(self, value: float, magnitude=0.) -> NoteLabel:
+    def find_note(self, value: float, magnitude=0.) -> (NoteLabel or None):
+        if value >= self._lower_filter_limit and value <= self._upper_filter_limit:
+            if self._verbose:
+                logger.debug('finding: %s with mag: %s', value, magnitude)
+            note = NoteLabel()
+            note.frequency = value
+            note.magnitude = magnitude
+            # find octave shift
+            _upper = self._upper_window_limit
+            _lower = self._lower_window_limit
+            _octave = 0
+            _harmonic = value
+            if _harmonic > _upper:
+                while _harmonic > _upper:
+                    _harmonic /= 2
+                    _octave += 1
+            elif _harmonic < _lower:
+                while _harmonic < _lower:
+                    _harmonic *= 2
+                    _octave += 1
+                _octave *= -1
+            # apply shifted
+            if _octave < 0:
+                _freqs = [float(_f/(-2 * _octave)) for _f in self._freqs]
+            elif _octave > 0:
+                _freqs = [float(_f * (2 * _octave)) for _f in self._freqs]
+            else:
+                _freqs = self._freqs
+            note.octave = _octave
+            # find nearest
+            _value = [abs(float(value - i)) for i in _freqs]
+            _index = _value.index(min(_value))
+            note.index = _index
+            note.label = self._roots[note.index]
+            for interval in range(2, 8):
+                if interval == 3:
+                    note.third = [
+                        self._min_3rd.index(note.label),
+                        self._maj_3rd.index(note.label)
+                    ]
+                elif interval in [4, 5] and interval < 5:
+                    note.fifth = self._fifths.index(note.label)
+            if self._verbose:
+                logger.debug('found: %s is "%s", shifted: %s', value, note.label, note.octave)
+            return note
         if self._verbose:
-            logger.debug('finding: %s with mag: %s', value, magnitude)
-        note = NoteLabel()
-        note.frequency = value
-        note.magnitude = magnitude
-        # find octave shift
-        _upper = self._upper_limit
-        _lower = self._lower_limit
-        _octave = 0
-        _harmonic = value
-        if _harmonic > _upper:
-            while _harmonic > _upper:
-                _harmonic /= 2
-                _octave += 1
-        elif _harmonic < _lower:
-            while _harmonic < _lower:
-                _harmonic *= 2
-                _octave += 1
-            _octave *= -1
-        # apply shifted
-        if _octave < 0:
-            _freqs = [float(_f/(-2 * _octave)) for _f in self._freqs]
-        elif _octave > 0:
-            _freqs = [float(_f * (2 * _octave)) for _f in self._freqs]
-        else:
-            _freqs = self._freqs
-        note.octave = _octave
-        # find nearest
-        _value = [abs(float(value - i)) for i in _freqs]
-        _index = _value.index(min(_value))
-        note.index = _index
-        note.label = self._roots[note.index]
-        for interval in range(2, 8):
-            if interval == 3:
-                note.third = [
-                    self._min_3rd.index(note.label),
-                    self._maj_3rd.index(note.label)
-                ]
-            elif interval in [4, 5] and interval < 5:
-                note.fifth = self._fifths.index(note.label)
-        if self._verbose:
-            logger.debug('found: %s is "%s", shifted: %s', value, note.label, note.octave)
-        return note
+            logger.debug('outside filter range: (%s, %s)', value, magnitude)
+        return None
 
     def find_maxima(self) -> bool:
         for i, idx in zip(self._y, range(len(self._y))):
@@ -185,10 +206,19 @@ class TriadFilter:
                 self._yy.append(i)
                 self._xx.append(self._x[idx])
         if self._yy:
-            _max_idx = self._yy.index(max(self._yy))
-            self._maxmag_freq = self.find_note(self._xx[_max_idx], self._yy[_max_idx])
-            self.change_root(self._maxmag_freq.label) # first pass guess
             self._note_labels = [self.find_note(x, y) for x, y in zip(self._xx, self._yy)]
+            if None in self._note_labels:
+                _temp = self._note_labels.copy()
+                self._note_labels.clear()
+                for i in range(len(_temp)):
+                    if _temp[i] is not None:
+                        self._note_labels.append(_temp[i])
+            if not self._note_labels:
+                return False
+            _max_mag = [note.magnitude for note in self._note_labels]
+            _max_idx = _max_mag.index(max(_max_mag))
+            self._maxmag_freq = self._note_labels[_max_idx]
+            self.change_root(self._maxmag_freq.label) # first pass guess
             self._note_set = [self._roots.index(note.label) for note in self._note_labels]
             logger.debug('max: (%s) _n: %s', self._maxmag_freq.label, self._note_set)
             logger.debug('_xx: %s', [note.frequency for note in self._note_labels])
@@ -196,27 +226,29 @@ class TriadFilter:
             return True
         return False
 
-    def find_major_minor(self, interval: int):
-        _histogram_major = [-1 for i in range(12)]
-        _histogram_minor = [-1 for i in range(12)]
+    def find_spacial_profile(self):
         for nl in self._note_labels:
-            if interval is 3:
-                if nl.third[0] in self._note_set:
-                    self.build_histogram(_histogram_minor, nl.third[0])
-                if nl.third[1] in self._note_set:
-                    self.build_histogram(_histogram_major, nl.third[1])
-            elif interval in [4, 5] and interval < 5:
-                if nl.fifth in self._note_set:
-                    self.build_histogram(_histogram_major, nl.fifth)
-        if interval is 3:
-            self._third[0] = self.test_root(self.parse_histogram(_histogram_minor))
-            self._third[1] = self.test_root(self.parse_histogram(_histogram_major))
-        elif interval in [4, 5] and interval < 5:
-            self._dominate[2] = self.test_root(self.parse_histogram(_histogram_major))
+            self.build_profile(nl)
+        for i in range(len(self._profile_notes)):
+            self._profile_notes[i] *=  self._profile_gains[i]
+        if self._verbose:
+            logger.debug('spacial profile: %s', self._profile_notes)
 
     def find_intervals(self):
         for interval in range(2, 8):
-            self.find_major_minor(interval)
+            _histogram_major = [-1 for _ in range(len(self._roots))]
+            _histogram_minor = [-1 for _ in range(len(self._roots))]
+            for nl in self._note_labels:
+                if interval is 3:
+                    self.build_histogram(_histogram_minor, nl.third[0], nl.octave)
+                    self.build_histogram(_histogram_major, nl.third[1], nl.octave)
+                elif interval in [4, 5] and interval < 5:
+                    self.build_histogram(_histogram_major, nl.fifth, nl.octave)
+            if interval is 3:
+                self._third[0] = self.test_root(self.parse_histogram(_histogram_minor))
+                self._third[1] = self.test_root(self.parse_histogram(_histogram_major))
+            elif interval in [4, 5] and interval < 5:
+                self._dominate[2] = self.test_root(self.parse_histogram(_histogram_major))
 
     def find_relative_dominate(self):
         _idx = self.parse_histogram(self._dominate)
@@ -245,6 +277,7 @@ class TriadFilter:
     def filter(self) -> dict:
         _third = ''
         if self.find_maxima():
+            self.find_spacial_profile()
             self.find_intervals()
             self.find_relative_dominate()
             _third = self.find_3rds()
