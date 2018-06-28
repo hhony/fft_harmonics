@@ -71,7 +71,7 @@ class TriadFilter:
             'D',
             'D♯|E♭'
         ]
-        self._minors = [
+        self._min_3rd = [
             'C',
             'C♯|D♭',
             'D',
@@ -85,7 +85,7 @@ class TriadFilter:
             'A♯|B♭',
             'B'
         ]
-        self._majors = [
+        self._maj_3rd = [
             'C♯|D♭',
             'D',
             'D♯|E♭',
@@ -165,11 +165,14 @@ class TriadFilter:
         _index = _value.index(min(_value))
         note.index = _index
         note.label = self._roots[note.index]
-        note.fifth = self._roots[self._fifths.index(note.label)]
-        note.third = {
-            'minor': self._roots[self._minors.index(note.label)],
-            'major': self._roots[self._majors.index(note.label)]
-        }
+        for interval in range(2, 8):
+            if interval == 3:
+                note.third = {
+                    'minor': self._roots[self._min_3rd.index(note.label)],
+                    'major': self._roots[self._maj_3rd.index(note.label)]
+                }
+            elif interval in [4, 5] and interval < 5:
+                note.fifth = self._roots[self._fifths.index(note.label)]
         if self._verbose:
             logger.debug('found: %s is "%s", shifted: %s', value, note.label, note.octave)
         return note
@@ -198,42 +201,52 @@ class TriadFilter:
         _root = self.parse_histogram(_histogram)
         self._has_fifth = self.change_root(_root)
 
-    def find_major_minor(self):
+    def find_major_minor(self, interval: int):
+        _output = {'major': ' maj', 'minor': ' m'}
+        _stores = ''
         _histogram_major = dict()
         _histogram_minor = dict()
         for nl in self._note_labels:
-            if nl.third['minor'] in self._note_set:
-                self.build_histogram(_histogram_minor, nl.third['minor'])
-            if nl.third['major'] in self._note_set:
-                self.build_histogram(_histogram_major, nl.third['major'])
+            if interval is 3:
+                if nl.third['minor'] in self._note_set:
+                    self.build_histogram(_histogram_minor, nl.third['minor'])
+                if nl.third['major'] in self._note_set:
+                    self.build_histogram(_histogram_major, nl.third['major'])
         _root_minor = self.parse_histogram(_histogram_minor)
         _root_major = self.parse_histogram(_histogram_major)
         if _root_major and _root_minor:
             if _root_major in self._note_set and _root_minor not in self._note_set:
-                self._third = ' maj'
+                _stores = 'major'
                 self.change_root(_root_major)
             elif _root_minor in self._note_set and _root_major not in self._note_set:
-                self._third = ' m'
+                _stores = 'minor'
                 self.change_root(_root_minor)
             else:
                 _major_value = _histogram_major[_root_major]
                 _minor_value = _histogram_minor[_root_minor]
                 if _major_value > _minor_value:
-                    self._third = ' maj'
+                    _stores = 'major'
                     self.change_root(_root_major)
                 elif _minor_value > _major_value:
-                    self._third = ' m'
+                    _stores = 'minor'
                     self.change_root(_root_minor)
         else: # _root_major or _root_minor
             if _root_major in self._note_set:
-                self._third = ' maj'
+                _stores = 'major'
                 self.change_root(_root_major)
             elif _root_minor in self._note_set:
-                self._third = ' m'
+                _stores = 'minor'
                 self.change_root(_root_minor)
+        if _stores:
+            if interval == 3:
+                self._third = _output[_stores]
+
+    def find_intervals(self):
+        for interval in range(2, 8):
+            self.find_major_minor(interval)
 
     def filter(self) -> dict:
         self.find_maxima()
         self.find_relative_dominate()
-        self.find_major_minor()
+        self.find_intervals()
         return { 'root': self._root, 'third': self._third }
