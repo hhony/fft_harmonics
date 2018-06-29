@@ -66,8 +66,9 @@ class TriadFilter:
         self._note_set = list()
         self._note_labels = list()
         self._maxmag_freq = None
+        # audio weights       [   -3,    -2,    -1,     0,      1,     2,      3,     4]
+        self._profile_gains = [0.075, 0.150, 0.666,  0.850, 0.666, 0.666,  0.333, 0.150]
         self._profile_notes = [0 for _ in range(-3, 5)]
-        self._profile_gains = [0.075, 0.15, 0.6, 0.85, 0.6, 0.15, 0.3, 0.15]
         self._root = ''
         self._third = [-1, -1]
         self._dominant = [-1, -1, -1]
@@ -98,7 +99,7 @@ class TriadFilter:
             _idx = nl.octave + 3
             self._profile_notes[_idx] += nl.magnitude
         else:
-            logger.warning('out of range: %s at (%s, %s)', nl.label, nl.frequency, nl.magnitude)
+            logger.warning('out of range: %s at (%0.3f, %.3g)', nl.label, nl.frequency, nl.magnitude)
 
     def build_histogram(self, histogram: list, index: int, octave: int):
         if octave >= -3 and octave <= 4:
@@ -113,13 +114,13 @@ class TriadFilter:
 
     def parse_histogram(self, histogram: list, label='') -> int:
         if self._verbose:
-            logger.debug('parse (%s) histogram: %s', label, histogram)
+            logger.debug('parse (%s) histogram: %s', label, ['%.3g' % bar for bar in histogram])
         return histogram.index(max(histogram))
 
     def find_note(self, value: float, magnitude=0.) -> (NoteLabel or None):
         if value >= self._lower_filter_limit and value <= self._upper_filter_limit:
             if self._verbose:
-                logger.debug('finding: %s with mag: %s', value, magnitude)
+                logger.debug('finding: %.3f with mag: %.3g', value, magnitude)
             note = NoteLabel()
             note.frequency = value
             note.magnitude = magnitude
@@ -187,8 +188,10 @@ class TriadFilter:
             self.change_root(self._maxmag_freq.label) # first pass guess
             self._note_set = [self._roots.index(note.label) for note in self._note_labels]
             logger.debug('max: (%s) _n: %s', self._maxmag_freq.label, self._note_set)
-            logger.debug('_xx: %s', [note.frequency for note in self._note_labels])
-            logger.debug('_yy: %s', [note.magnitude for note in self._note_labels])
+            if self._verbose:
+                logger.debug('labels _n: %s', [self._roots[i] for i in self._note_set])
+            logger.debug('_xx: %s', [str('%.3f' % note.frequency) for note in self._note_labels])
+            logger.debug('_yy: %s', [str('%.3g' % note.magnitude) for note in self._note_labels])
             return True
         return False
 
