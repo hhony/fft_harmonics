@@ -1,7 +1,7 @@
-from numpy import empty, greater, ndarray
+from numpy import arange, empty, greater, ndarray, sin, pi
 from scipy.signal import argrelextrema
-
 from .log import logger
+
 
 class NoteLabel:
     def __init__(self, frequency=0., magnitude=0.):
@@ -15,7 +15,7 @@ class NoteLabel:
 
 
 class TriadFilter:
-    def __init__(self, x, y, verbose=False, threshold=5000.):
+    def __init__(self, x, y, verbose=False, threshold=2e+4):
         self._verbose = verbose
         self._magnitude = threshold
         self._threshold = empty(y.size)
@@ -27,10 +27,12 @@ class TriadFilter:
         self._yy = []
         self._xx = []
         # center filter on A1 to C8 within A4 to A5 window
-        self._upper_window_limit = 830.61 + ((880.0 - 830.61) / 2) # halfway between A♯|B♭ below octave
-        self._lower_window_limit = 440.0 - ((440.0 - 415.305) / 2) # halfway between A♯|B♭ below unison
-        self._upper_filter_limit = 523.25 * 4      # upper C on piano keyboard (C8)
-        self._lower_filter_limit = 440.0 / (2 * 3) # lower A on piano keyboard (A1)
+        self._octave_lower = -4
+        self._octave_upper = 3
+        self._upper_window_limit = 830.61 + (0.5 * (880.0 - 830.61)) # halfway between A♯|B♭ below octave
+        self._lower_window_limit = 440.0 - (0.5 * (440.0 - 415.305)) # halfway between A♯|B♭ below unison
+        self._upper_filter_limit = 2 * 523.25 * (self._octave_upper - 1)   # upper C on piano keyboard (C8)
+        self._lower_filter_limit = 0.5 * 440.0 / (-1 * self._octave_lower) # lower A on piano keyboard (A1)
         self._freqs = [
             440.0,
             466.16,
@@ -63,13 +65,20 @@ class TriadFilter:
         self._major_3rd = 4
         self._dominant_4th = 5
         self._dominant_5th = 6
+        # note tracking
         self._note_set = list()
         self._note_labels = list()
         self._maxmag_freq = None
-        # audio weights       [   -3,    -2,    -1,     0,      1,     2,      3,     4]
-        self._profile_gains = [0.075, 0.150, 0.666,  0.850, 0.666, 0.666,  0.333, 0.150]
-        self._profile_notes = [0 for _ in range(-3, 5)]
         self._root = ''
+        self._step = x[1]
+        self._w1 = float(2 * self._freqs[len(self._freqs)-1] * self._octave_upper)
+        self._i1 = int(self._w1 / self._step)
+        self._profile_ticks = arange(0, x[len(x)-1] + self._step, self._step)
+        self._profile_g_win = self._threshold * sin(pi * self._profile_ticks / self._w1)
+        # audio weights       [   -4,    -3,    -2,    -1,      0,     1,      2,     3]
+        self._profile_gains = [1.000, 1.000, 1.000,  1.000, 1.000, 1.000,  1.000, 1.000]
+        self._profile_notes = [0. for _ in range(len(self._profile_gains))]
+        # interval tracking
         self._third = [-1, -1]
         self._dominant = [-1, -1, -1]
 
@@ -94,21 +103,28 @@ class TriadFilter:
     def get_interval(self, index: int, offset: int):
         return (index + offset) % len(self._roots)
 
+    def get_profile(self) -> tuple:
+        return self._profile_ticks, self._profile_g_win
+
     def build_profile(self, nl: NoteLabel):
         if nl.octave >= -3 and nl.octave <= 4:
             _idx = nl.octave + 3
-            self._profile_notes[_idx] += nl.magnitude
+            _mag = self._profile_gains[nl.octave] * nl.magnitude
+            _win = int(nl.frequency / self._step)
+            self._profile_notes[_idx] += _mag / self._profile_g_win[_win]
         else:
             logger.warning('out of range: %s at (%0.3f, %.3g)', nl.label, nl.frequency, nl.magnitude)
 
     def build_histogram(self, histogram: list, index: int, octave: int):
-        if octave >= -3 and octave <= 4:
-            _idx = octave + 3
+        if octave >= self._octave_lower and octave <= self._octave_upper:
+            _idx = octave + (-1 * self._octave_lower)
             if index in self._note_set:
                 if histogram[index] < 0:
-                    histogram[index] = self._profile_notes[_idx]
+                    # histogram[index] = self._profile_notes[_idx]
+                    histogram[index] = 1
                     return
-                histogram[index] += self._profile_notes[_idx]
+                # histogram[index] += self._profile_notes[_idx]
+                histogram[index] += 1
         else:
             logger.warning('skipping: %s in octave: %s', self._roots[index], octave)
 
@@ -198,10 +214,8 @@ class TriadFilter:
     def find_spacial_profile(self):
         for nl in self._note_labels:
             self.build_profile(nl)
-        for i in range(len(self._profile_notes)):
-            self._profile_notes[i] *=  self._profile_gains[i]
         if self._verbose:
-            logger.debug('spacial profile: %s', self._profile_notes)
+            logger.debug('|--| spacial profile: %s', [str('%.3f' % i) for i in self._profile_notes])
 
     def find_intervals(self):
         for interval in range(2, 8):
