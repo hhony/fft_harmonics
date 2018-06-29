@@ -7,7 +7,7 @@ from .log import logger
 class AudioCapture:
     def __init__(self):
         self._bitrate = 48100
-        self._buffer_size = 4096
+        self._buffer_size = 8192
         self._sec_to_capture = 0.1
         self._exiting = False
         self._running = False
