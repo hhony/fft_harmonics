@@ -26,7 +26,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--db-threshold', '--threshold',
-        dest='threshold', default=5000.,
+        dest='threshold', default=2e+4,
         help='filter: sets the default magnitude threshold level'
     )
     parser.add_argument(
@@ -77,8 +77,10 @@ if __name__ == '__main__':
             threshold=float(args.threshold)
         )
         chord = triad.filter()
-        _plot.draw('frequencies', x, y)
+        sx, sy = triad.get_profile()
         _plot.draw('threshold', x, triad.threshold(), pen='g')
+        _plot.draw('inputfilter', sx, sy, pen='g')
+        _plot.draw('frequencies', x, y)
         if chord['root']:
             logger.info('chord: %s%s', chord['root'], chord['third'])
         _audio.has_captured = False
