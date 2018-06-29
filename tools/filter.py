@@ -98,7 +98,7 @@ class TriadFilter:
     def change_root(self, root: int, test=False) -> int:
         if root > -1:
             if not test:
-                logger.debug('change root: (%s) from (%s)', root, self._tonic)
+                logger.debug('change root: (%s) from (%s)', self._roots[root], self._tonic)
                 self._index = root
                 self._tonic = self._roots[self._index]
             else:
@@ -131,17 +131,18 @@ class TriadFilter:
         else:
             logger.warning('out of range: %s at (%0.3f, %.3g)', nl.label, nl.frequency, nl.magnitude)
 
-    def build_histogram(self, histogram: list, index: int, octave: int):
-        if octave >= self._octave_lower and octave <= self._octave_upper:
-            _idx = octave + (-1 * self._octave_lower)
+    def build_histogram(self, histogram: list, index: int, nl: NoteLabel):
+        _octave = nl.octave
+        if _octave >= self._octave_lower and _octave <= self._octave_upper:
+            _idx = _octave + (-1 * self._octave_lower)
             if index in self._note_set:
-                _distr = self._profile_distr[_idx]
+                _distr = nl.input + self._profile_distr[_idx]
                 if histogram[index] < 0:
                     histogram[index] = _distr
                     return
                 histogram[index] += _distr
         else:
-            logger.warning('skipping: %s in octave: %s', self._roots[index], octave)
+            logger.warning('skipping: %s in octave: %s', self._roots[index], _octave)
 
     def parse_histogram(self, histogram: list, label='') -> int:
         if self._verbose:
@@ -253,11 +254,14 @@ class TriadFilter:
             _histogram_minor = [-1 for _ in range(len(self._roots))]
             for nl in self._note_labels:
                 if interval is 3:
-                    self.build_histogram(_histogram_minor, nl.third[0], nl.octave)
-                    self.build_histogram(_histogram_major, nl.third[1], nl.octave)
+                    self.build_histogram(_histogram_minor, nl.third[0], nl)
+                    self.build_histogram(_histogram_major, nl.third[1], nl)
+                    if nl.third[1] > -1 and nl.third[0] > -1:
+                        if max(_histogram_major) > max(_histogram_major):
+                            nl.third[0] = -1
                 elif interval in [4, 5] and interval < 5:
-                    self.build_histogram(_histogram_minor, nl.dominant[0], nl.octave)
-                    self.build_histogram(_histogram_major, nl.dominant[2], nl.octave)
+                    self.build_histogram(_histogram_minor, nl.dominant[0], nl)
+                    self.build_histogram(_histogram_major, nl.dominant[2], nl)
             if interval is 3:
                 self._third[0] = self.test_root(self.parse_histogram(_histogram_minor, 'minor 3rd'))
                 self._third[1] = self.test_root(self.parse_histogram(_histogram_major, 'major 3rd'))
@@ -308,7 +312,7 @@ class TriadFilter:
             # 4th == 5th   and tonic == 3rd
             if (self._index != self._dom_4th_candidate and self._dom_4th_candidate == self._dom_5th_candidate and
                     (self._min_3rd_candidate == _min_3rd_via_4th or self._maj_3rd_candidate == _maj_3rd_via_4th) or
-                    (self._min_3rd_candidate == self._index or self._maj_3rd_candidate == self._index)):
+                    (self._min_3rd_candidate == self._index      or self._maj_3rd_candidate == self._index)):
                 self.change_root(self._dom_4th_candidate)
 
     def filter(self) -> dict:
