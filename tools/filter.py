@@ -8,6 +8,8 @@ class NoteLabel:
         self.frequency = frequency
         self.magnitude = magnitude
         self.octave = 0
+        self.error = 0.
+        self.input = 0.
         self.index = 0
         self.label = ''
         self.third = [-1, -1]
@@ -77,7 +79,7 @@ class TriadFilter:
         self._profile_g_win = self._threshold * sin(pi * self._profile_ticks / self._w1)
         # audio weights       [   -4,    -3,    -2,    -1,      0,     1,      2,     3]
         self._profile_gains = [1.000, 1.000, 1.000,  1.000, 1.000, 1.000,  1.000, 1.000]
-        self._profile_notes = [0. for _ in range(len(self._profile_gains))]
+        self._profile_distr = [0. for _ in range(len(self._profile_gains))]
         # interval tracking
         self._third = [-1, -1]
         self._dominant = [-1, -1, -1]
@@ -107,11 +109,16 @@ class TriadFilter:
         return self._profile_ticks, self._profile_g_win
 
     def build_profile(self, nl: NoteLabel):
-        if nl.octave >= -3 and nl.octave <= 4:
-            _idx = nl.octave + 3
+        if nl.octave >= self._octave_lower and nl.octave <= self._octave_upper:
+            _idx = nl.octave + (-1 * self._octave_lower)
             _mag = self._profile_gains[nl.octave] * nl.magnitude
             _win = int(nl.frequency / self._step)
-            self._profile_notes[_idx] += _mag / self._profile_g_win[_win]
+            nl.input = float(self._profile_g_win[_win] / (nl.magnitude * nl.error))
+            self._profile_distr[_idx] += nl.input
+            if self._verbose:
+                logger.debug('%.3f: %.3g to %.3f, err: %.3f, est: %f' % (
+                    nl.frequency, _mag, self._profile_g_win[_win],
+                    nl.error, nl.input ))
         else:
             logger.warning('out of range: %s at (%0.3f, %.3g)', nl.label, nl.frequency, nl.magnitude)
 
@@ -166,6 +173,7 @@ class TriadFilter:
             _value = [abs(float(value - i)) for i in _freqs]
             _index = _value.index(min(_value))
             note.index = _index
+            note.error = _value[_index]
             note.label = self._roots[note.index]
             for interval in range(2, 8):
                 if interval == 3:
@@ -200,22 +208,36 @@ class TriadFilter:
                 return False
             _max_mag = [note.magnitude for note in self._note_labels]
             _max_idx = _max_mag.index(max(_max_mag))
+            _min_err = [note.error for note in self._note_labels]
+            _min_idx = _min_err.index(min(_min_err))
             self._maxmag_freq = self._note_labels[_max_idx]
             self.change_root(self._maxmag_freq.label) # first pass guess
             self._note_set = [self._roots.index(note.label) for note in self._note_labels]
             logger.debug('max: (%s) _n: %s', self._maxmag_freq.label, self._note_set)
             if self._verbose:
                 logger.debug('labels _n: %s', [self._roots[i] for i in self._note_set])
-            logger.debug('_xx: %s', [str('%.3f' % note.frequency) for note in self._note_labels])
-            logger.debug('_yy: %s', [str('%.3g' % note.magnitude) for note in self._note_labels])
+                logger.debug('_xx: %s', [str('%.3f' % note.frequency) for note in self._note_labels])
+                logger.debug('_yy: %s', [str('%.3g' % note.magnitude) for note in self._note_labels])
+                logger.debug('err: %s', [str('%.3f' % err) for err in _min_err])
+            logger.debug('err: min: %s (%d) %s: %.3f',
+                         _min_err[_min_idx],
+                         _min_idx,
+                         self._note_labels[_min_idx].label,
+                         self._note_labels[_min_idx].frequency
+            )
+            logger.debug('mag: max: %s (%d) %s: %.3f',
+                         _max_mag[_max_idx],
+                         _max_idx,
+                         self._note_labels[_max_idx].label,
+                         self._note_labels[_max_idx].frequency
+            )
             return True
         return False
 
     def find_spacial_profile(self):
         for nl in self._note_labels:
             self.build_profile(nl)
-        if self._verbose:
-            logger.debug('|--| spacial profile: %s', [str('%.3f' % i) for i in self._profile_notes])
+        logger.debug('|--| spacial profile distribution: %s', [str('%.3f' % i) for i in self._profile_distr])
 
     def find_intervals(self):
         for interval in range(2, 8):
