@@ -71,7 +71,6 @@ class TriadFilter:
         self._note_set = list()
         self._note_labels = list()
         self._maxmag_freq = None
-        self._root = ''
         self._step = x[1]
         self._w1 = float(2 * self._freqs[len(self._freqs)-1] * self._octave_upper)
         self._i1 = int(self._w1 / self._step)
@@ -83,23 +82,33 @@ class TriadFilter:
         # interval tracking
         self._third = [-1, -1]
         self._dominant = [-1, -1, -1]
+        # predictions
+        self._min_3rd_candidate = -1
+        self._maj_3rd_candidate = -1
+        self._dom_4th_candidate = -1
+        self._dom_dim_candidate = -1
+        self._dom_5th_candidate = -1
+        self._index = -1
+        self._tonic = ''
+        self._tense = ''
 
     def threshold(self) -> ndarray:
         return self._threshold
 
-    def change_root(self, root: str, test=False) -> int:
-        if root and root != self._root:
+    def change_root(self, root: int, test=False) -> int:
+        if root > -1:
             if not test:
-                logger.debug('change root: (%s) from (%s)', root, self._root)
-                self._root = root
+                logger.debug('change root: (%s) from (%s)', root, self._tonic)
+                self._index = root
+                self._tonic = self._roots[self._index]
             else:
-                logger.debug('test root: %s from %s', root, self._root)
-                return self._roots.index(root)
-        return self._roots.index(self._root)
+                logger.debug('test root: %s from %s', self._roots[root], self._tonic)
+                return self._roots.index(self._roots[root])
+        return self._index
 
     def test_root(self, index: int) -> int:
         if index > 0:
-            return self.change_root(self._roots[index], True)
+            return self.change_root(index, True)
         return index
 
     def get_interval(self, index: int, offset: int):
@@ -126,12 +135,11 @@ class TriadFilter:
         if octave >= self._octave_lower and octave <= self._octave_upper:
             _idx = octave + (-1 * self._octave_lower)
             if index in self._note_set:
+                _distr = self._profile_distr[_idx]
                 if histogram[index] < 0:
-                    # histogram[index] = self._profile_notes[_idx]
-                    histogram[index] = 1
+                    histogram[index] = _distr
                     return
-                # histogram[index] += self._profile_notes[_idx]
-                histogram[index] += 1
+                histogram[index] += _distr
         else:
             logger.warning('skipping: %s in octave: %s', self._roots[index], octave)
 
@@ -211,7 +219,7 @@ class TriadFilter:
             _min_err = [note.error for note in self._note_labels]
             _min_idx = _min_err.index(min(_min_err))
             self._maxmag_freq = self._note_labels[_max_idx]
-            self.change_root(self._maxmag_freq.label) # first pass guess
+            self.change_root(self._maxmag_freq.index) # first pass guess
             self._note_set = [self._roots.index(note.label) for note in self._note_labels]
             logger.debug('max: (%s) _n: %s', self._maxmag_freq.label, self._note_set)
             if self._verbose:
@@ -258,32 +266,56 @@ class TriadFilter:
                 self._dominant[2] = self.test_root(self.parse_histogram(_histogram_major, '5th'))
 
     def find_relative_dominant(self):
-        if self._dominant[2] > -1:
-            self.change_root(self._roots[self._dominant[2]])
+        for i in range(len(self._dominant)):
+            _dom_dim = self._dominant[i]
+            if _dom_dim > -1:
+                _tense = ''
+                if i is 0:
+                    self._dom_4th_candidate = self._dominant[i]
+                    _tense += '(4th) '
+                elif i is 1:
+                    self._dom_dim_candidate = self._dominant[i]
+                    _tense += '(diminished / augmented) '
+                elif i is 2:
+                    self._dom_5th_candidate = self._dominant[i]
+                    _tense += '(5th) '
+                logger.debug("Likely tonic dominant candidate: %s", self._roots[_dom_dim])
 
-    def find_3rds(self) -> str:
+    def find_3rds(self):
         _output = [' maj', ' m']
         _stores = -1
-        if self._third[1] and self._third[0]: # major and minor
-            if self._third[1] in self._note_set and self._third[0] not in self._note_set:
-                _stores = 0
-            elif self._third[0] in self._note_set and self._third[1] not in self._note_set:
-                _stores = 1
-        else: # major or minor
-            if self._third[1] in self._note_set:
-                _stores = 1
-            elif self._third[0] in self._note_set:
-                _stores = 0
+        _majmin = ''
+        # major or minor.. means yes.
+        if self._third[1] in self._note_set:
+            _stores = 1
+            self._min_3rd_candidate = self._third[_stores]
+            self._tense = _output[_stores]
+            _majmin += '(%s ) ' % (self._tense)
+        if self._third[0] in self._note_set:
+            _stores = 0
+            self._maj_3rd_candidate = self._third[_stores]
+            self._tense = _output[_stores]
+            _majmin += '(%s ) ' % (self._tense)
         if _stores > -1:
-            self.change_root(self._roots[self._third[_stores]])
-            return _output[_stores]
-        return ''
+            # self.change_root(self._roots[self._third[_stores]])
+            logger.debug("Likely tonic 3rd candidate: %s %s", self._roots[self._third[_stores]], _majmin)
+
+    def analyze_intervals(self):
+        if self._dom_4th_candidate > -1:
+            _maj_3rd_via_4th = self.get_interval(self._dom_4th_candidate, self._major_3rd)
+            _min_3rd_via_4th = self.get_interval(self._dom_4th_candidate, self._minor_3rd)
+            # 4th == 5th   and 3rd   == 4th
+            # 4th == 5th   and tonic == 3rd
+            if (self._index != self._dom_4th_candidate and self._dom_4th_candidate == self._dom_5th_candidate and
+                    (self._min_3rd_candidate == _min_3rd_via_4th or self._maj_3rd_candidate == _maj_3rd_via_4th) or
+                    (self._min_3rd_candidate == self._index or self._maj_3rd_candidate == self._index)):
+                self.change_root(self._dom_4th_candidate)
 
     def filter(self) -> dict:
-        _third = ''
         if self.find_maxima():
             self.find_spacial_profile()
             self.find_intervals()
             self.find_relative_dominant()
-            _third = self.find_3rds()
-        return { 'root': self._root, 'third': _third }
+            self.find_3rds()
+            self.analyze_intervals()
+        return { 'root': self._tonic, 'third': self._tense}
