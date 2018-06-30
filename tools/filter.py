@@ -123,8 +123,13 @@ class TriadFilter:
     def get_profile(self) -> tuple:
         return self._profile_ticks, self._profile_g_win
 
-    def get_mode(self) -> int:
-        return self._note_mode.index(max(self._note_mode))
+    def get_mode(self) -> list:
+        _max = self._note_mode.index(max(self._note_mode))
+        _ret = []
+        for i in range(len(self._note_mode)):
+            if self._note_mode[i] == _max:
+                _ret.append(i)
+        return _ret
 
     def build_profile(self, nl: NoteLabel):
         if nl.octave >= self._octave_lower and nl.octave <= self._octave_upper:
@@ -347,16 +352,26 @@ class TriadFilter:
         if self._5th_bias[0] > -1:
             return
         if self._3rd_bias[0] > -1:
+            _dominant = self.get_interval(self._3rd_bias[0], self._dominant_5th)
             _minor_root = self.get_interval(self._3rd_bias[0], (-1 * self._minor_3rd))
             _major_root = self.get_interval(self._3rd_bias[0], (-1 * self._major_3rd))
-            if _minor_root in [self._dom_4th_candidate, self._dom_dim_candidate, self._dominant_5th] \
-                    or _minor_root == self.get_mode():
+            _notes_mode = self.get_mode()
+            if _dominant in _notes_mode:
+                if self._3rd_bias[1] == self.get_interval(self._3rd_bias[0], self._minor_3rd):
+                    self._tense = self._sound[0]
+                else:
+                    self._tense = self._sound[1]
+                if self._index != self._3rd_bias[0]:
+                    self.change_root(self._3rd_bias[0])
+                return
+            elif _minor_root in _notes_mode \
+                    or _minor_root in [self._dom_4th_candidate, self._dom_dim_candidate, self._dominant_5th]:
                 self._tense = self._sound[0]
                 if self._index != _minor_root:
                     self.change_root(_minor_root)
                 return
-            elif _major_root in [self._dom_4th_candidate, self._dom_dim_candidate, self._dominant_5th] \
-                    or _major_root == self.get_mode():
+            elif _major_root in _notes_mode \
+                    or _major_root in [self._dom_4th_candidate, self._dom_dim_candidate, self._dominant_5th]:
                 self._tense = self._sound[1]
                 if self._index != _major_root:
                     self.change_root(_major_root)
