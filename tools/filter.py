@@ -87,6 +87,7 @@ class TriadFilter:
         self._dominant = [-1, -1, -1]
         # predictions
         self._3rd_bias = [-1, -1]
+        self._5th_bias = [-1, -1]
         self._min_3rd_candidate = -1
         self._maj_3rd_candidate = -1
         self._dom_4th_candidate = -1
@@ -95,6 +96,7 @@ class TriadFilter:
         self._index = -1
         self._tonic = ''
         self._tense = ''
+        self._sound = [' m', ' maj']
 
     def threshold(self) -> ndarray:
         return self._threshold
@@ -229,13 +231,21 @@ class TriadFilter:
             _min_err = [note.error for note in self._note_labels]
             _min_idx = _min_err.index(min(_min_err))
             _min_lbl = self._note_labels[_min_idx].index
-            if abs(_max_lbl - _min_lbl) in [self._minor_3rd, self._major_3rd]:
+            _spacing = abs(_max_lbl - _min_lbl)
+            if _spacing in [self._minor_3rd, self._major_3rd]:
                 if _max_lbl > _min_lbl:
                     self._minmax_freq = self._note_labels[_min_idx]
                     self._3rd_bias = [_min_lbl, _max_lbl]
                 else:
                     self._minmax_freq = self._note_labels[_max_idx]
                     self._3rd_bias = [_max_lbl, _min_lbl]
+            elif _spacing in [self._dominant_4th, self._dominant_5th]:
+                if _spacing == self._dominant_5th:
+                    self._minmax_freq = self._note_labels[_min_idx]
+                    self._5th_bias = [_min_lbl, _max_lbl]
+                else:
+                    self._minmax_freq = self._note_labels[_max_idx]
+                    self._5th_bias = [_max_lbl, _min_lbl]
             else: # first pass guess
                 self._minmax_freq = self._note_labels[_max_idx]
             self.change_root(self._minmax_freq.index)
@@ -302,6 +312,19 @@ class TriadFilter:
                 self._dominant[2] = self.test_root(self.parse_histogram(_histogram_major, '5th'))
 
     def find_relative_dominant(self):
+        # check dominant bias first
+        if self._5th_bias[0] > -1:
+            _minor = self.get_interval(self._5th_bias[0], self._minor_3rd)
+            _major = self.get_interval(self._5th_bias[0], self._major_3rd)
+            if _minor in self._note_set:
+                self._tense = self._sound[0]
+                return
+            elif _major in self._note_set:
+                self._tense = self._sound[1]
+                return
+            else:
+                self._5th_bias = [-1, -1]
+        # standard candidate matching
         for i in range(len(self._dominant)):
             _dom_dim = self._dominant[i]
             if _dom_dim > -1:
@@ -318,22 +341,23 @@ class TriadFilter:
                 logger.debug("Likely tonic dominant candidate: %s %s", self._roots[_dom_dim], _tense)
 
     def find_3rds(self):
-        _output = [' m', ' maj']
         _stores = -1
         _majmin = ''
         # check bias
+        if self._5th_bias[0] > -1:
+            return
         if self._3rd_bias[0] > -1:
             _minor_root = self.get_interval(self._3rd_bias[0], (-1 * self._minor_3rd))
             _major_root = self.get_interval(self._3rd_bias[0], (-1 * self._major_3rd))
             if _minor_root in [self._dom_4th_candidate, self._dom_dim_candidate, self._dominant_5th] \
                     or _minor_root == self.get_mode():
-                self._tense = _output[0]
+                self._tense = self._sound[0]
                 if self._index != _minor_root:
                     self.change_root(_minor_root)
                 return
             elif _major_root in [self._dom_4th_candidate, self._dom_dim_candidate, self._dominant_5th] \
                     or _major_root == self.get_mode():
-                self._tense = _output[1]
+                self._tense = self._sound[1]
                 if self._index != _major_root:
                     self.change_root(_major_root)
                 return
@@ -343,12 +367,12 @@ class TriadFilter:
         if self._third[1] in self._note_set:
             _stores = 1
             self._min_3rd_candidate = self._third[_stores]
-            self._tense = _output[_stores]
+            self._tense = self._sound[_stores]
             _majmin += '(%s ) ' % (self._tense)
         if self._third[0] in self._note_set:
             _stores = 0
             self._maj_3rd_candidate = self._third[_stores]
-            self._tense = _output[_stores]
+            self._tense = self._sound[_stores]
             _majmin += '(%s ) ' % (self._tense)
         if _stores > -1:
             logger.debug("Likely tonic 3rd candidate: %s %s", self._roots[self._third[_stores]], _majmin)
