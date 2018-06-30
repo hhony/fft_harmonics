@@ -185,7 +185,7 @@ class TriadFilter:
             note.error = _value[_index]
             note.label = self._roots[note.index]
             for interval in range(2, 8):
-                if interval == 3:
+                if interval is 3:
                     note.third = [
                         self.get_interval(_index, self._minor_3rd),
                         self.get_interval(_index, self._major_3rd)
@@ -256,15 +256,19 @@ class TriadFilter:
                 if interval is 3:
                     self.build_histogram(_histogram_minor, nl.third[0], nl)
                     self.build_histogram(_histogram_major, nl.third[1], nl)
-                    if nl.third[1] > -1 and nl.third[0] > -1:
-                        if max(_histogram_major) > max(_histogram_major):
-                            nl.third[0] = -1
                 elif interval in [4, 5] and interval < 5:
                     self.build_histogram(_histogram_minor, nl.dominant[0], nl)
                     self.build_histogram(_histogram_major, nl.dominant[2], nl)
             if interval is 3:
                 self._third[0] = self.test_root(self.parse_histogram(_histogram_minor, 'minor 3rd'))
                 self._third[1] = self.test_root(self.parse_histogram(_histogram_major, 'major 3rd'))
+                if nl.third[1] > -1 and nl.third[0] > -1:
+                    _max_minor = max(_histogram_minor)
+                    _max_major = max(_histogram_major)
+                    if _max_major > _max_minor:
+                        nl.third[0] = -1
+                    else:
+                        nl.third[1] = -1
             elif interval in [4, 5] and interval < 5:
                 self._dominant[0] = self.test_root(self.parse_histogram(_histogram_minor, '4th'))
                 self._dominant[2] = self.test_root(self.parse_histogram(_histogram_major, '5th'))
@@ -305,12 +309,13 @@ class TriadFilter:
             logger.debug("Likely tonic 3rd candidate: %s %s", self._roots[self._third[_stores]], _majmin)
 
     def analyze_intervals(self):
-        if self._dom_4th_candidate > -1:
+        if self._dom_4th_candidate > -1 and self._dom_5th_candidate > -1:
             _maj_3rd_via_4th = self.get_interval(self._dom_4th_candidate, self._major_3rd)
             _min_3rd_via_4th = self.get_interval(self._dom_4th_candidate, self._minor_3rd)
             # 4th == 5th   and 3rd   == 4th
             # 4th == 5th   and tonic == 3rd
             if (self._index != self._dom_4th_candidate and self._dom_4th_candidate == self._dom_5th_candidate and
+                    (self._min_3rd_candidate == -1 and self._maj_3rd_candidate == -1 and len(self._note_set) > 1) or
                     (self._min_3rd_candidate == _min_3rd_via_4th or self._maj_3rd_candidate == _maj_3rd_via_4th) or
                     (self._min_3rd_candidate == self._index      or self._maj_3rd_candidate == self._index)):
                 self.change_root(self._dom_4th_candidate)
