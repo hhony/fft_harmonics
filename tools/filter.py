@@ -269,9 +269,14 @@ class TriadFilter:
                 if nl.third[1] > -1 and nl.third[0] > -1:
                     _max_minor = max(_histogram_minor)
                     _max_major = max(_histogram_major)
-                    if _max_major > _max_minor:
-                        nl.third[0] = -1
+                    if self.get_interval(nl.third[0], self._dominant_5th) == \
+                            self.get_interval(nl.index, self._minor_3rd) or \
+                        (_max_minor > _max_major):
+                        nl.third[1] = -1
+                    elif (_max_major > _max_minor):
+                            nl.third[0] = -1
                     else:
+                        nl.third[0] = -1
                         nl.third[1] = -1
             elif interval in [4, 5] and interval < 5:
                 self._dominant[0] = self.test_root(self.parse_histogram(_histogram_minor, '4th'))
