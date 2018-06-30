@@ -66,7 +66,8 @@ class TriadFilter:
         self._minor_3rd = 3
         self._major_3rd = 4
         self._dominant_4th = 5
-        self._dominant_5th = 6
+        self._dominant_dim = 6
+        self._dominant_5th = 7
         # note tracking
         self._note_set = list()
         self._note_labels = list()
@@ -192,6 +193,7 @@ class TriadFilter:
                     ]
                 elif interval in [4, 5] and interval < 5:
                     note.dominant[0] = self.get_interval(_index, self._dominant_4th)
+                    note.dominant[1] = self.get_interval(_index, self._dominant_dim)
                     note.dominant[2] = self.get_interval(_index, self._dominant_5th)
             if self._verbose:
                 logger.debug('found: %s is "%s", shifted: %s', value, note.label, note.octave)
@@ -252,12 +254,14 @@ class TriadFilter:
         for interval in range(2, 8):
             _histogram_major = [-1 for _ in range(len(self._roots))]
             _histogram_minor = [-1 for _ in range(len(self._roots))]
+            _histogram_dimin = [-1 for _ in range(len(self._roots))]
             for nl in self._note_labels:
                 if interval is 3:
                     self.build_histogram(_histogram_minor, nl.third[0], nl)
                     self.build_histogram(_histogram_major, nl.third[1], nl)
                 elif interval in [4, 5] and interval < 5:
                     self.build_histogram(_histogram_minor, nl.dominant[0], nl)
+                    self.build_histogram(_histogram_dimin, nl.dominant[1], nl)
                     self.build_histogram(_histogram_major, nl.dominant[2], nl)
             if interval is 3:
                 self._third[0] = self.test_root(self.parse_histogram(_histogram_minor, 'minor 3rd'))
@@ -271,6 +275,7 @@ class TriadFilter:
                         nl.third[1] = -1
             elif interval in [4, 5] and interval < 5:
                 self._dominant[0] = self.test_root(self.parse_histogram(_histogram_minor, '4th'))
+                self._dominant[1] = self.test_root(self.parse_histogram(_histogram_dimin, 'diminished'))
                 self._dominant[2] = self.test_root(self.parse_histogram(_histogram_major, '5th'))
 
     def find_relative_dominant(self):
@@ -279,15 +284,15 @@ class TriadFilter:
             if _dom_dim > -1:
                 _tense = ''
                 if i is 0:
-                    self._dom_4th_candidate = self._dominant[i]
+                    self._dom_4th_candidate = _dom_dim
                     _tense += '(4th) '
                 elif i is 1:
-                    self._dom_dim_candidate = self._dominant[i]
+                    self._dom_dim_candidate = _dom_dim
                     _tense += '(diminished / augmented) '
                 elif i is 2:
-                    self._dom_5th_candidate = self._dominant[i]
+                    self._dom_5th_candidate = _dom_dim
                     _tense += '(5th) '
-                logger.debug("Likely tonic dominant candidate: %s", self._roots[_dom_dim])
+                logger.debug("Likely tonic dominant candidate: %s %s", self._roots[_dom_dim], _tense)
 
     def find_3rds(self):
         _output = [' maj', ' m']
