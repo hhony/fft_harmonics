@@ -71,6 +71,7 @@ class TriadFilter:
         self._dominant_5th = 7
         # note tracking
         self._note_set = list()
+        self._note_mode = [0 for _ in self._roots]
         self._note_labels = list()
         self._minmax_freq = None
         self._step = x[1]
@@ -119,6 +120,9 @@ class TriadFilter:
 
     def get_profile(self) -> tuple:
         return self._profile_ticks, self._profile_g_win
+
+    def get_mode(self) -> int:
+        return self._note_mode.index(max(self._note_mode))
 
     def build_profile(self, nl: NoteLabel):
         if nl.octave >= self._octave_lower and nl.octave <= self._octave_upper:
@@ -236,6 +240,8 @@ class TriadFilter:
                 self._minmax_freq = self._note_labels[_max_idx]
             self.change_root(self._minmax_freq.index)
             self._note_set = [self._roots.index(note.label) for note in self._note_labels]
+            for i in self._note_set:
+                self._note_mode[i] += 1
             logger.debug('max: (%s) _n: %s', self._minmax_freq.label, self._note_set)
             if self._verbose:
                 logger.debug('labels _n: %s', [self._roots[i] for i in self._note_set])
@@ -317,13 +323,22 @@ class TriadFilter:
         _majmin = ''
         # check bias
         if self._3rd_bias[0] > -1:
-            if self._index != self._3rd_bias[0]:
-                self.change_root(self._3rd_bias[0])
-            if abs(self._3rd_bias[1] - self._3rd_bias[0]) == self._minor_3rd:
+            _minor_root = self.get_interval(self._3rd_bias[0], (-1 * self._minor_3rd))
+            _major_root = self.get_interval(self._3rd_bias[0], (-1 * self._major_3rd))
+            if _minor_root in [self._dom_4th_candidate, self._dom_dim_candidate, self._dominant_5th] \
+                    or _minor_root == self.get_mode():
                 self._tense = _output[0]
-            else:
+                if self._index != _minor_root:
+                    self.change_root(_minor_root)
+                return
+            elif _major_root in [self._dom_4th_candidate, self._dom_dim_candidate, self._dominant_5th] \
+                    or _major_root == self.get_mode():
                 self._tense = _output[1]
-            return
+                if self._index != _major_root:
+                    self.change_root(_major_root)
+                return
+            else:
+                self._3rd_bias = [-1, -1]
         # major or minor.. means yes.
         if self._third[1] in self._note_set:
             _stores = 1
