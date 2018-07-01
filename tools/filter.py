@@ -71,7 +71,7 @@ class TriadFilter:
         self._dominant_5th = 7
         # note tracking
         self._note_set = list()
-        self._note_mode = [0 for _ in self._roots]
+        self._note_modes = [0 for _ in self._roots]
         self._note_labels = list()
         self._minmax_freq = None
         self._step = x[1]
@@ -123,11 +123,11 @@ class TriadFilter:
     def get_profile(self) -> tuple:
         return self._profile_ticks, self._profile_g_win
 
-    def get_mode(self) -> list:
-        _max = self._note_mode.index(max(self._note_mode))
+    def get_max_mode(self) -> list:
+        _max = self._note_modes.index(max(self._note_modes))
         _ret = []
-        for i in range(len(self._note_mode)):
-            if self._note_mode[i] == _max:
+        for i in range(len(self._note_modes)):
+            if self._note_modes[i] == _max:
                 _ret.append(i)
         return _ret
 
@@ -256,10 +256,11 @@ class TriadFilter:
             self.change_root(self._minmax_freq.index)
             self._note_set = [self._roots.index(note.label) for note in self._note_labels]
             for i in self._note_set:
-                self._note_mode[i] += 1
+                self._note_modes[i] += 1
             logger.debug('max: (%s) _n: %s', self._minmax_freq.label, self._note_set)
             if self._verbose:
                 logger.debug('labels _n: %s', [self._roots[i] for i in self._note_set])
+                logger.debug('modes: %s', self._note_modes)
                 logger.debug('_xx: %s', [str('%.3f' % note.frequency) for note in self._note_labels])
                 logger.debug('_yy: %s', [str('%.3g' % note.magnitude) for note in self._note_labels])
                 logger.debug('err: %s', [str('%.3f' % err) for err in _min_err])
@@ -285,9 +286,9 @@ class TriadFilter:
 
     def find_intervals(self):
         for interval in range(2, 8):
-            _histogram_major = [-1 for _ in range(len(self._roots))]
-            _histogram_minor = [-1 for _ in range(len(self._roots))]
-            _histogram_dimin = [-1 for _ in range(len(self._roots))]
+            _histogram_major = self._note_modes.copy()
+            _histogram_minor = self._note_modes.copy()
+            _histogram_dimin = self._note_modes.copy()
             for nl in self._note_labels:
                 if interval is 3:
                     self.build_histogram(_histogram_minor, nl.third[0], nl)
@@ -316,16 +317,22 @@ class TriadFilter:
                 self._dominant[1] = self.test_root(self.parse_histogram(_histogram_dimin, 'diminished'))
                 self._dominant[2] = self.test_root(self.parse_histogram(_histogram_major, '5th'))
 
+    def set_major_minor_tense(self, index: int):
+        if self._tense:
+            self._tense = ''
+            return
+        self._tense = self._sound[index]
+
     def find_relative_dominant(self):
         # check dominant bias first
         if self._5th_bias[0] > -1:
             _minor = self.get_interval(self._5th_bias[0], self._minor_3rd)
             _major = self.get_interval(self._5th_bias[0], self._major_3rd)
             if _minor in self._note_set:
-                self._tense = self._sound[0]
+                self.set_major_minor_tense(0)
                 return
             elif _major in self._note_set:
-                self._tense = self._sound[1]
+                self.set_major_minor_tense(1)
                 return
             else:
                 self._5th_bias = [-1, -1]
@@ -355,24 +362,23 @@ class TriadFilter:
             _dominant = self.get_interval(self._3rd_bias[0], self._dominant_5th)
             _minor_root = self.get_interval(self._3rd_bias[0], (-1 * self._minor_3rd))
             _major_root = self.get_interval(self._3rd_bias[0], (-1 * self._major_3rd))
-            _notes_mode = self.get_mode()
-            if _dominant in _notes_mode:
+            if self._note_modes[_dominant] > 0:
                 if self._3rd_bias[1] == self.get_interval(self._3rd_bias[0], self._minor_3rd):
-                    self._tense = self._sound[0]
+                    self.set_major_minor_tense(0)
                 else:
-                    self._tense = self._sound[1]
+                    self.set_major_minor_tense(1)
                 if self._index != self._3rd_bias[0]:
                     self.change_root(self._3rd_bias[0])
                 return
-            elif _minor_root in _notes_mode \
+            elif self._note_modes[_minor_root] > 0 \
                     or _minor_root in [self._dom_4th_candidate, self._dom_dim_candidate, self._dominant_5th]:
-                self._tense = self._sound[0]
+                self.set_major_minor_tense(0)
                 if self._index != _minor_root:
                     self.change_root(_minor_root)
                 return
-            elif _major_root in _notes_mode \
+            elif self._note_modes[_major_root] > 0 \
                     or _major_root in [self._dom_4th_candidate, self._dom_dim_candidate, self._dominant_5th]:
-                self._tense = self._sound[1]
+                self.set_major_minor_tense(1)
                 if self._index != _major_root:
                     self.change_root(_major_root)
                 return
@@ -382,13 +388,13 @@ class TriadFilter:
         if self._third[1] in self._note_set:
             _stores = 1
             self._min_3rd_candidate = self._third[_stores]
-            self._tense = self._sound[_stores]
-            _majmin += '(%s ) ' % (self._tense)
+            self.set_major_minor_tense(_stores)
+            _majmin += '(%s ) ' % (self._sound[_stores])
         if self._third[0] in self._note_set:
             _stores = 0
             self._maj_3rd_candidate = self._third[_stores]
-            self._tense = self._sound[_stores]
-            _majmin += '(%s ) ' % (self._tense)
+            self.set_major_minor_tense(_stores)
+            _majmin += '(%s ) ' % (self._sound[_stores])
         if _stores > -1:
             logger.debug("Likely tonic 3rd candidate: %s %s", self._roots[self._third[_stores]], _majmin)
 
