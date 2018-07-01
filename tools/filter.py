@@ -254,7 +254,7 @@ class TriadFilter:
             else: # first pass guess
                 self._minmax_freq = self._note_labels[_max_idx]
             self.change_root(self._minmax_freq.index)
-            self._note_set = [self._roots.index(note.label) for note in self._note_labels]
+            self._note_set = [note.index for note in self._note_labels]
             for i in self._note_set:
                 self._note_modes[i] += 1
             logger.debug('max: (%s) _n: %s', self._minmax_freq.label, self._note_set)
@@ -328,10 +328,10 @@ class TriadFilter:
         if self._5th_bias[0] > -1:
             _minor = self.get_interval(self._5th_bias[0], self._minor_3rd)
             _major = self.get_interval(self._5th_bias[0], self._major_3rd)
-            if _minor in self._note_set:
+            if self._note_modes[_minor] > 0:
                 self.set_major_minor_tense(0)
                 return
-            elif _major in self._note_set:
+            elif self._note_modes[_major] > 0:
                 self.set_major_minor_tense(1)
                 return
             else:
@@ -385,12 +385,12 @@ class TriadFilter:
             else:
                 self._3rd_bias = [-1, -1]
         # major or minor.. means yes.
-        if self._third[1] in self._note_set:
+        if self._note_modes[self._third[1]] > 0:
             _stores = 1
             self._min_3rd_candidate = self._third[_stores]
             self.set_major_minor_tense(_stores)
             _majmin += '(%s ) ' % (self._sound[_stores])
-        if self._third[0] in self._note_set:
+        if self._note_modes[self._third[0]] > 0:
             _stores = 0
             self._maj_3rd_candidate = self._third[_stores]
             self.set_major_minor_tense(_stores)
