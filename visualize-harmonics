@@ -10,6 +10,56 @@ from tools import logger, set_level
 from sys import exit as sys_exit
 
 
+class VisualizeHarmonics:
+    def __init__(self, threshold, db_gain, single_tail, verbose, update_ms):
+        self._plot = PlotSignalWindow()
+        self._audio = AudioCapture()
+        self._verbose = verbose
+        self._threshold = threshold
+        self._db_gain = db_gain
+        self._single_tail = single_tail
+        self._update_ms = update_ms
+        self._sinx = None
+        self._siny = None
+        self._x = None
+        self._y = None
+        self._timer = QtCore.QTimer()
+        self._timer.timeout.connect(self.update)
+
+    def start(self):
+        self._audio.start()
+        self._timer.start(self._update_ms)
+        self._plot.start()
+
+    def stop(self):
+        self._audio.close()
+        self._timer.singleShot(0, self._plot.app.quit)
+        self._timer.stop()
+        sys_exit(self._plot.app.exec_())
+
+    def update(self):
+        if not self._audio.has_captured:
+            return
+        self._x, self._y = self._audio.fft(
+            db_gain=float(self._db_gain),
+            single_tail=float(self._single_tail)
+        )
+        triad = TriadFilter(
+            self._x, self._y,
+            verbose=self._verbose,
+            threshold=float(self._threshold)
+        )
+        chord = triad.filter()
+        if self._siny is None:
+            self._sinx, self._siny = triad.get_profile()
+        self._plot.draw('threshold', self._x, triad.threshold(), pen='g')
+        self._plot.draw('inputfilter', self._sinx, self._siny, pen='g')
+        self._plot.draw('frequencies', self._x, self._y)
+        if chord['root']:
+            logger.info('chord: %s%s', chord['root'], chord['third'])
+        self._audio.has_captured = False
+
+
 class SmartFormatter(argparse.RawDescriptionHelpFormatter):
     def _split_lines(self, text, width):
         if text.startswith('R|'):
@@ -59,39 +109,14 @@ if __name__ == '__main__':
     if args.log_level != 'INFO':
         set_level(args.log_level)
 
-    _plot = PlotSignalWindow()
-    _audio = AudioCapture()
-    _audio.start()
-
-    def update():
-        global _plot, _audio
-        if not _audio.has_captured:
-            return
-        x, y = _audio.fft(
-            db_gain=float(args.db_gain),
-            single_tail=float(args.single_tail)
-        )
-        triad = TriadFilter(
-            x, y,
-            verbose=args.verbose,
-            threshold=float(args.threshold)
-        )
-        chord = triad.filter()
-        sx, sy = triad.get_profile()
-        _plot.draw('threshold', x, triad.threshold(), pen='g')
-        _plot.draw('inputfilter', sx, sy, pen='g')
-        _plot.draw('frequencies', x, y)
-        if chord['root']:
-            logger.info('chord: %s%s', chord['root'], chord['third'])
-        _audio.has_captured = False
-    # setup timer poll
-    timer = QtCore.QTimer()
-    timer.timeout.connect(update)
-    timer.start(args.update_ms)
-    # start visualization
-    _plot.start()
-    # cleanup after window closed
-    _audio.close()
-    timer.singleShot(0, _plot.app.quit)
-    timer.stop()
-    sys_exit(_plot.app.exec_())
+    visualizer = VisualizeHarmonics(
+        args.threshold,
+        args.db_gain,
+        args.single_tail,
+        args.verbose,
+        args.update_ms
+    )
+    # start window
+    visualizer.start()
+    # exit after window closed
+    visualizer.stop()
