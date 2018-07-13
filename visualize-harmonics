@@ -7,6 +7,7 @@
 import argparse
 from tools import AudioCapture, QtCore, PlotSignalWindow, TriadFilter
 from tools import logger, set_level
+from signal import signal, Signals, SIGINT, SIGTERM
 from sys import exit as sys_exit
 
 
@@ -25,6 +26,8 @@ class VisualizeHarmonics:
         self._y = None
         self._timer = QtCore.QTimer()
         self._timer.timeout.connect(self.update)
+        signal(SIGINT, self.sig_handler)
+        signal(SIGTERM, self.sig_handler)
 
     def start(self):
         self._audio.start()
@@ -58,6 +61,11 @@ class VisualizeHarmonics:
         if chord['root']:
             logger.info('chord: %s%s', chord['root'], chord['third'])
         self._audio.has_captured = False
+
+    def sig_handler(self, sig, stack):
+        logger.debug('stack %s', stack)
+        self._plot.app.quit()
+        logger.info('terminating %s (%s)', Signals(sig).name, sig)
 
 
 class SmartFormatter(argparse.RawDescriptionHelpFormatter):
