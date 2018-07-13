@@ -25,12 +25,12 @@ if __name__ == '__main__':
         description='plots and filters the Fast Fourier Transform of musical triads in real-time'
     )
     parser.add_argument(
-        '--db-threshold', '--threshold',
+        '-t', '--db-threshold', '--threshold',
         dest='threshold', default=2e+4,
         help='filter: sets the default magnitude threshold level'
     )
     parser.add_argument(
-        '--db-gain',
+        '-g', '--db-gain',
         dest='db_gain', default=1e-1,
         help='capture: adjust the capture gain log10'
     )
@@ -40,12 +40,12 @@ if __name__ == '__main__':
         help='capture: single-tail fft'
     )
     parser.add_argument(
-        '--log-level',
+        '-l', '--log-level',
         dest='log_level', default='INFO',
         help='sets the default logging level'
     )
     parser.add_argument(
-        '--speed-ms',
+        '-s', '--ms', '--speed-ms',
         dest='update_ms', default=10,
         help='capture: sets the refresh rate of graph in milliseconds. default: 50'
     )
