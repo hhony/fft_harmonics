@@ -410,6 +410,17 @@ class TriadFilter:
                     (self._min_3rd_candidate == -1 and self._maj_3rd_candidate == -1 and len(self._note_set) > 1)):
                 self.change_root(self._dom_4th_candidate)
 
+    def get_color(self) -> int:
+        _color = 0x00
+        if not self._tense:
+            _color = 0x20
+        elif self._tense == self._sound[0]:
+            _color = 0x40
+        elif self._tense is self._sound[1]:
+            _color = 0x30
+        _color |= self._roots.index(self._tonic) + 1
+        return _color
+
     def filter(self) -> dict:
         if self.find_maxima():
             self.find_spacial_profile()
