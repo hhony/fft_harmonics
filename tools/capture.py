@@ -49,6 +49,7 @@ class AudioCapture:
             str_audio = self._input_stream.read(self._buffer_size)
         except IOError as e:
             logger.error('audio err: %s, %s', e, e.errno)
+            self._audio_signal.close(self._input_stream)
             self._audio_signal.terminate()
             del self._audio_signal
             self._audio_signal = PyAudio()
@@ -85,6 +86,7 @@ class AudioCapture:
     def fft(self, data=None, slice=10, log_scale=False, db_gain=1e-2, single_tail=False) -> tuple:
         if data is None:
             data = self._x_audio.flatten()
+        self.has_captured = False
         _buffer_size = self._buffer_size
         if single_tail:
             _buffer_size = float(self._buffer_size / 2)

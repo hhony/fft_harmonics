@@ -74,7 +74,6 @@ class VisualizeHarmonics:
                 logger.info('chord: %s%s', chord['root'], chord['third'])
                 _byte = triad.get_color()
                 self._serial.write(chr(_byte).encode('utf-8'))
-        self._audio.has_captured = False
 
     def sig_handler(self, sig, stack):
         logger.debug('stack %s', stack)
