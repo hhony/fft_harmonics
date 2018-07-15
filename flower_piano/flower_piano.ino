@@ -43,6 +43,9 @@ uint8_t STD_FADE = 0;
 uint8_t MAJ_FADE = 0;
 uint8_t MIN_FADE = 0;
 
+#define trigger 1000
+char _byte = 0;
+
 uint8_t _delay = 0;
 
 
@@ -70,7 +73,7 @@ uint32_t Wheel(byte WheelPos) { // all colors full bright
 }
 
 void rainbowCycle(uint8_t strip, uint8_t wait, uint8_t cycles=5) {
-  for (int j = 0; j < 256 * 5; j++) { // 5 cycles of all 256 colors in the wheel
+  for (int j = 0; j < 256 * cycles; j++) { // 5 cycles of all 256 colors in the wheel
     // tricky math! we use each pixel as a fraction of the full 96-color wheel
     // (thats the i / strip.numPixels() part)
     // Then add in j which makes the colors go around per pixel
@@ -100,6 +103,9 @@ void rainbowCycle(uint8_t strip, uint8_t wait, uint8_t cycles=5) {
         }
         strip3.show();
         break;
+    }
+    if (Serial.peek() > 0) {
+      break;
     }
     delay(wait);
   }
@@ -230,36 +236,35 @@ void colorFade(int strip, uint32_t color, uint8_t wait) {
   delay(wait);
 }
 
-
-// void increment_timer()
-int trigger = 100000;
+void read_data() {
+  if (Serial.available() > 0) {
+    _byte = Serial.read();
+    if (_byte > 0)
+      _timer = 0;
+  }
+}
 
 void loop() {
   _delay = 0;
-  _mic_reading = analogRead(microphonePin);
-  if (_mic_reading > _mic_threshold) {
-    _timer = 0;
-  } else if (_mic_reading <= _mic_threshold) {
-    _timer++;
-  }
-  if (_timer >= trigger) {
-    if (Serial.available() > 0) {
-      char _byte = Serial.read();
-      uint32_t _color = get_color(_byte);
-      colorFade(0, _color, _delay);
-//      colorFade(1, _color, _delay);
-//      colorFade(2, _color, _delay);
-//      colorFade(3, _color, _delay);
+  read_data();
+  if (_timer > trigger) {
+    rainbowCycle(0, 20);
+//    rainbowCycle(1, 20);
+//    rainbowCycle(2, 20);
+//    rainbowCycle(3, 20);
+    if (Serial.peek() > 0) {
+      read_data();
     }
-  } else if (_timer < trigger) {
-//    do {
-      rainbowCycle(0, 20);
-//      rainbowCycle(1, 20);
-//      rainbowCycle(2, 20);
-//      rainbowCycle(3, 20);
-//      delay(20);
-//    } while (analogRead(microphonePin) <= _mic_threshold);
-//    _timer = 0;
+  }
+  if (_timer < trigger) {
+    uint32_t _color = get_color(_byte);
+    colorFade(0, _color, _delay);
+//    colorFade(1, _color, _delay);
+//    colorFade(2, _color, _delay);
+//    colorFade(3, _color, _delay);
+  }
+  if (_timer <= trigger) {
+    _timer++;
   }
 }
 
