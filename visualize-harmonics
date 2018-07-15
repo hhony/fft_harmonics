@@ -12,7 +12,7 @@ from sys import exit as sys_exit
 
 
 class VisualizeHarmonics:
-    def __init__(self, threshold, db_gain, single_tail, verbose, update_ms):
+    def __init__(self, threshold, db_gain, single_tail, verbose, update_ms, no_bling):
         self._plot = PlotSignalWindow()
         self._audio = AudioCapture()
         self._verbose = verbose
@@ -20,6 +20,17 @@ class VisualizeHarmonics:
         self._db_gain = db_gain
         self._single_tail = single_tail
         self._update_ms = update_ms
+        self._has_bling = not no_bling
+        self._device = ''
+        self._serial = None
+        if self._has_bling:
+            import serial
+            from os import listdir
+            devs = list(filter(lambda x: x.startswith('tty.usbmodem'), listdir('/dev')))
+            if len(devs) > 0:
+                self._device = '/dev/%s' % devs[0]
+            logger.info('adding bling at: %s', self._device)
+            self._serial = serial.Serial(self._device, 9600)
         self._sinx = None
         self._siny = None
         self._x = None
@@ -59,7 +70,10 @@ class VisualizeHarmonics:
         self._plot.draw('inputfilter', self._sinx, self._siny, pen='g')
         self._plot.draw('frequencies', self._x, self._y)
         if chord['root']:
-            logger.info('chord: %s%s', chord['root'], chord['third'])
+            if self._device and chord['third']:
+                logger.info('chord: %s%s', chord['root'], chord['third'])
+                _byte = triad.get_color()
+                self._serial.write(chr(_byte).encode('utf-8'))
         self._audio.has_captured = False
 
     def sig_handler(self, sig, stack):
@@ -112,6 +126,11 @@ if __name__ == '__main__':
         dest='verbose', action='store_true', default=False,
         help='shows verbose signal output'
     )
+    parser.add_argument(
+        '-n', '--no-bling',
+        dest='no_bling', action='store_true', default=False,
+        help='autoloads arduino LED expressions'
+    )
     args = parser.parse_args()
 
     if args.log_level != 'INFO':
@@ -122,7 +141,8 @@ if __name__ == '__main__':
         args.db_gain,
         args.single_tail,
         args.verbose,
-        args.update_ms
+        args.update_ms,
+        args.no_bling
     )
     # start window
     visualizer.start()
