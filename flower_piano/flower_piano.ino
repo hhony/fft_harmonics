@@ -13,7 +13,7 @@ uint8_t clockPin[4] = {3, 5, 7, 9}; // Green wire on Adafruit Pixels
 // microphone
 const uint8_t microphonePin = 0;    // the microphone positive terminal will connect to analog pin A0 to be read
 int _mic_reading;                   // the variable that will hold the value read from the microphone each time
-const int _mic_threshold = 1000;    // the microphone threshold sound level at which the LED will turn on
+const int _mic_threshold = 250;    // the microphone threshold sound level at which the LED will turn on
 
 
 // Set the first variable to the NUMBER of pixels. 25 = 25 pixels in a row
@@ -29,12 +29,12 @@ void setup() {
   Serial.begin(9600);
   strip0.begin();
   strip0.show();
-//  strip1.begin();
-//  strip1.show();
-//  strip2.begin();
-//  strip2.show();
-//  strip3.begin();
-//  strip3.show();
+  strip1.begin();
+  strip1.show();
+  strip2.begin();
+  strip2.show();
+  strip3.begin();
+  strip3.show();
   pinMode(13, OUTPUT);
 }
 
@@ -99,6 +99,9 @@ void rainbowCycle(uint8_t strip, uint8_t wait, uint8_t cycles=5) {
         }
         strip3.show();
         break;
+    }
+    if (analogRead(microphonePin) <= _mic_threshold) {
+      break;
     }
     delay(wait);
   }
@@ -238,11 +241,18 @@ void loop() {
       char _byte = Serial.read();
       uint32_t _color = get_color(_byte);
       colorFade(0, _color, _delay);
+//      colorFade(1, _color, _delay);
+//      colorFade(2, _color, _delay);
+//      colorFade(3, _color, _delay);
     }
   } else if (_mic_reading <= _mic_threshold) {
     do {
       rainbowCycle(0, 20);
-    } while (_mic_reading <= _mic_threshold);
+//      rainbowCycle(1, 20);
+//      rainbowCycle(2, 20);
+//      rainbowCycle(3, 20);
+//      delay(20);
+    } while (analogRead(microphonePin) <= _mic_threshold);
   }
 }
 
