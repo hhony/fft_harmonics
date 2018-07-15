@@ -13,7 +13,8 @@ uint8_t clockPin[4] = {3, 5, 7, 9}; // Green wire on Adafruit Pixels
 // microphone
 const uint8_t microphonePin = 0;    // the microphone positive terminal will connect to analog pin A0 to be read
 int _mic_reading;                   // the variable that will hold the value read from the microphone each time
-const int _mic_threshold = 250;    // the microphone threshold sound level at which the LED will turn on
+const int _mic_threshold = 100;    // the microphone threshold sound level at which the LED will turn on
+int _timer = 0;
 
 
 // Set the first variable to the NUMBER of pixels. 25 = 25 pixels in a row
@@ -29,12 +30,12 @@ void setup() {
   Serial.begin(9600);
   strip0.begin();
   strip0.show();
-  strip1.begin();
-  strip1.show();
-  strip2.begin();
-  strip2.show();
-  strip3.begin();
-  strip3.show();
+  // strip1.begin();
+  // strip1.show();
+  // strip2.begin();
+  // strip2.show();
+  // strip3.begin();
+  // strip3.show();
   pinMode(13, OUTPUT);
 }
 
@@ -69,7 +70,7 @@ uint32_t Wheel(byte WheelPos) { // all colors full bright
 }
 
 void rainbowCycle(uint8_t strip, uint8_t wait, uint8_t cycles=5) {
-  for (int j = 0; j < 256 * cycles; j++) { // 5 cycles of all 256 colors in the wheel
+  for (int j = 0; j < 256 * 5; j++) { // 5 cycles of all 256 colors in the wheel
     // tricky math! we use each pixel as a fraction of the full 96-color wheel
     // (thats the i / strip.numPixels() part)
     // Then add in j which makes the colors go around per pixel
@@ -99,9 +100,6 @@ void rainbowCycle(uint8_t strip, uint8_t wait, uint8_t cycles=5) {
         }
         strip3.show();
         break;
-    }
-    if (analogRead(microphonePin) <= _mic_threshold) {
-      break;
     }
     delay(wait);
   }
@@ -233,10 +231,18 @@ void colorFade(int strip, uint32_t color, uint8_t wait) {
 }
 
 
+// void increment_timer()
+int trigger = 100000;
+
 void loop() {
   _delay = 0;
   _mic_reading = analogRead(microphonePin);
   if (_mic_reading > _mic_threshold) {
+    _timer = 0;
+  } else if (_mic_reading <= _mic_threshold) {
+    _timer++;
+  }
+  if (_timer >= trigger) {
     if (Serial.available() > 0) {
       char _byte = Serial.read();
       uint32_t _color = get_color(_byte);
@@ -245,14 +251,15 @@ void loop() {
 //      colorFade(2, _color, _delay);
 //      colorFade(3, _color, _delay);
     }
-  } else if (_mic_reading <= _mic_threshold) {
-    do {
+  } else if (_timer < trigger) {
+//    do {
       rainbowCycle(0, 20);
 //      rainbowCycle(1, 20);
 //      rainbowCycle(2, 20);
 //      rainbowCycle(3, 20);
 //      delay(20);
-    } while (analogRead(microphonePin) <= _mic_threshold);
+//    } while (analogRead(microphonePin) <= _mic_threshold);
+//    _timer = 0;
   }
 }
 
