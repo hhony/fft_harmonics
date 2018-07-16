@@ -18,8 +18,7 @@ class AudioCapture:
             self._capture_buffers = 1
         self._capture_samples = int(self._buffer_size * self._capture_buffers) # == sec_to_capture * bitrate
         self._sec_per_period = 1.0 / self._bitrate
-        self._audio_signal = PyAudio()
-        self.open()
+        self.open_input_stream()
         self._x_buffer = arange(self._buffer_size) * self._sec_per_period
         self._x_values = arange(self._capture_buffers * self._buffer_size) * self._sec_per_period
         self._x_audio = empty((self._capture_buffers * self._buffer_size), dtype=int16)
@@ -28,7 +27,12 @@ class AudioCapture:
         logger.info('  capture_buffers: %d, capture_samples: %d, sec_per_period: %g',
                     self._capture_buffers, self._capture_samples, self._sec_per_period)
 
-    def open(self):
+    def open_input_stream(self, purge=False):
+        if purge:
+            self._audio_signal.close(self._input_stream)
+            self._audio_signal.terminate()
+            del self._audio_signal
+        self._audio_signal = PyAudio()
         self._input_stream = self._audio_signal.open(
             format=paInt16,
             channels=1,
@@ -49,11 +53,7 @@ class AudioCapture:
             str_audio = self._input_stream.read(self._buffer_size)
         except IOError as e:
             logger.error('audio err: %s, %s', e, e.errno)
-            self._audio_signal.close(self._input_stream)
-            self._audio_signal.terminate()
-            del self._audio_signal
-            self._audio_signal = PyAudio()
-            self.open()
+            self.open_input_stream(purge=True)
             str_audio = '\x00' * 2 * self._buffer_size
         return fromstring(str_audio, dtype=int16)
 
