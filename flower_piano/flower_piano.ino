@@ -4,21 +4,35 @@
  #include <avr/power.h>
 #endif
 
-int _pixels = 10;
 
-//Variables for LEDs
+// Microphone detection for when piano not playing
+// Note: trigger will change for pixels lager than 10 elements..
+//       For example, if you have a strip of 40: use something around 250 when 10 is around 1000 to keep timing.
+//       Meaning, for each multiple of 10 LEDs, divide trigger by that number: 1000 / (40 % 10) == 250
+//       This seems related to the increased serial data delay for changing colors in really long LED strips.
+int _timer = 0;       // incremental counter for no data
+#define trigger 1000  // trigger timing value
+
+// incoming chord data
+char _byte = 0;
+
+// chord/color delay parameters
+uint8_t STD_FADE = 0;
+uint8_t MAJ_FADE = 0;
+uint8_t MIN_FADE = 0;
+uint8_t _delay = 0;
+
+
+// Arduino pin map for LEDs
 uint8_t dataPin[4]  = {2, 4, 6, 8}; // Yellow wire on Adafruit Pixels
 uint8_t clockPin[4] = {3, 5, 7, 9}; // Green wire on Adafruit Pixels
-
-// microphone detection for when piano not playing
-int _timer = 0;
-
-
-// Set the first variable to the NUMBER of pixels. 25 = 25 pixels in a row
+// Arduino LED controlers
+int _pixels = 10; // first argument to the NUMBER of pixels. 25 = 25 pixels in a row
 Adafruit_WS2801 strip0 = Adafruit_WS2801(_pixels, dataPin[0], clockPin[0]);
 Adafruit_WS2801 strip1 = Adafruit_WS2801(_pixels, dataPin[1], clockPin[1]);
 Adafruit_WS2801 strip2 = Adafruit_WS2801(_pixels, dataPin[2], clockPin[2]);
 Adafruit_WS2801 strip3 = Adafruit_WS2801(_pixels, dataPin[3], clockPin[3]);
+
 
 void setup() {
 #if defined(__AVR_ATtiny85__) && (F_CPU == 16000000L)
@@ -36,16 +50,8 @@ void setup() {
   pinMode(13, OUTPUT);
 }
 
-uint8_t STD_FADE = 0;
-uint8_t MAJ_FADE = 0;
-uint8_t MIN_FADE = 0;
 
-#define trigger 1000
-char _byte = 0;
-
-uint8_t _delay = 0;
-
-
+// Map LED RGB bytes into 24-bit color int
 uint32_t Color(uint8_t r, uint8_t g, uint8_t b) {
   uint32_t c = 0;
   c = r;
@@ -57,6 +63,7 @@ uint32_t Color(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 
+// Creates color wheel for full RGB spectrum
 uint32_t Wheel(byte WheelPos) { // all colors full bright
   if (WheelPos < 85) {
     return Color((WheelPos * 3), (255 - WheelPos * 3), 0 );
@@ -69,6 +76,10 @@ uint32_t Wheel(byte WheelPos) { // all colors full bright
   }
 }
 
+
+// Makes pretty rainbow colors
+//   @param wait:   determines speed
+//   @param cycles: splits the strip into repetitions back to first color
 void rainbowCycle(uint8_t strip, uint8_t wait, uint8_t cycles=5) {
   for (int j = 0; j < 256 * cycles; j++) { // 5 cycles of all 256 colors in the wheel
     // tricky math! we use each pixel as a fraction of the full 96-color wheel
@@ -109,12 +120,17 @@ void rainbowCycle(uint8_t strip, uint8_t wait, uint8_t cycles=5) {
 }
 
 
+// Builds the chord for the chord in color map
+//   @param delta: the presentation extender (0 to 255) of an assigned color - increases how long color stays
+//   returns 24-bit color and stores delay
 uint32_t get_color_chord(uint8_t r, uint8_t g, uint8_t b, uint8_t delta) {
   _delay = delta;
   return Color(r, g, b);
 }
 
 
+// Maps the incoming chord / note to an RGB color
+//   @param _byte: incoming representation - A to G#, if note (standard) || A(minor / major) to G#(minor / major)
 uint32_t get_color(char _byte) {
   if ( _byte > 0 ) {
     switch( (int)_byte ) {
@@ -204,6 +220,7 @@ uint32_t get_color(char _byte) {
 }
 
 
+// Basic color wipe function - sets all pixels to incoming color
 void colorFade(int strip, uint32_t color, uint8_t wait) {
   int _px = 0;
   switch (strip) {
@@ -243,6 +260,8 @@ void colorFade(int strip, uint32_t color, uint8_t wait) {
   delay(wait);
 }
 
+
+// Reads data from serial port and stores
 void read_data() {
   if (Serial.available() > 0) {
     _byte = Serial.read();
@@ -251,6 +270,8 @@ void read_data() {
   }
 }
 
+
+// Main loop for application
 void loop() {
   _delay = 0;
   read_data();
