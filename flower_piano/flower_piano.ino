@@ -10,10 +10,7 @@ int _pixels = 10;
 uint8_t dataPin[4]  = {2, 4, 6, 8}; // Yellow wire on Adafruit Pixels
 uint8_t clockPin[4] = {3, 5, 7, 9}; // Green wire on Adafruit Pixels
 
-// microphone
-const uint8_t microphonePin = 0;    // the microphone positive terminal will connect to analog pin A0 to be read
-int _mic_reading;                   // the variable that will hold the value read from the microphone each time
-const int _mic_threshold = 100;    // the microphone threshold sound level at which the LED will turn on
+// microphone detection for when piano not playing
 int _timer = 0;
 
 
@@ -212,6 +209,16 @@ void colorFade(int strip, uint32_t color, uint8_t wait) {
   switch (strip) {
     case 0:
       _px = strip0.numPixels();
+      break;
+    case 1:
+      _px = strip1.numPixels();
+      break;
+    case 2:
+      _px = strip2.numPixels();
+      break;
+    case 3:
+      _px = strip3.numPixels();
+      break;
   }
   for (int i = 0; i < _px; i++) {
     switch (strip) {
